@@ -206,14 +206,16 @@ export async function uploadBrandingAsset(
   const res = await fetch(dataUrl);
   const blob = await res.blob();
   const ext = blob.type.includes("png") ? "png" : "jpg";
-  const path = `${organizationId}/branding/${kind}.${ext}`;
+  // Random suffix keeps the public URL unguessable and busts caches on re-upload
+  const rand = Math.random().toString(36).slice(2, 10);
+  const path = `${organizationId}/branding/${kind}-${rand}.${ext}`;
 
   const { error } = await supabase.storage
-    .from("tenant-assets")
+    .from("tenant-branding")
     .upload(path, blob, { upsert: true, contentType: blob.type });
 
   if (error) return null;
 
-  const { data } = supabase.storage.from("tenant-assets").getPublicUrl(path);
+  const { data } = supabase.storage.from("tenant-branding").getPublicUrl(path);
   return data.publicUrl;
 }

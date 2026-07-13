@@ -6,9 +6,6 @@ interface AuthContextValue {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
-  signInWithLine: () => Promise<void>;
   signInWithEmail: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
@@ -16,14 +13,6 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const redirectTo = () => `${window.location.origin}/`;
-
-async function oauthSignIn(provider: "google" | "apple") {
-  if (!supabase) return;
-  await supabase.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo: redirectTo() },
-  });
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -67,16 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       session,
       loading,
-      signInWithGoogle: () => oauthSignIn("google"),
-      signInWithApple: () => oauthSignIn("apple"),
-      signInWithLine: async () => {
-        if (!supabase) return;
-        const providerId = import.meta.env.VITE_LINE_OIDC_PROVIDER || "line";
-        await supabase.auth.signInWithOAuth({
-          provider: providerId as "google",
-          options: { redirectTo: redirectTo() },
-        });
-      },
       signInWithEmail: async (email: string) => {
         if (!supabase) return { error: "Supabase が未設定です" };
         const { error } = await supabase.auth.signInWithOtp({
