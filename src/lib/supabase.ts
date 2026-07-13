@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  DEFAULT_SUPABASE_ANON_KEY,
+  DEFAULT_SUPABASE_FUNCTIONS_URL,
+  DEFAULT_SUPABASE_URL,
+} from "./supabase.defaults";
 
-const url = (import.meta.env.VITE_SUPABASE_URL || "").trim();
-const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+const url = (import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY).trim();
 
 const looksLikePlaceholder = (value: string) =>
   !value ||
@@ -24,6 +29,7 @@ export const supabase = isSupabaseConfigured
 export function functionsUrl(path: string) {
   const base =
     import.meta.env.VITE_SUPABASE_FUNCTIONS_URL ||
+    DEFAULT_SUPABASE_FUNCTIONS_URL ||
     (url ? `${url}/functions/v1` : "");
   return `${base}/${path}`;
 }

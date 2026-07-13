@@ -8,8 +8,12 @@ major_version = 15
 
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
-additional_redirect_urls = ["http://localhost:5173"]
+site_url = "https://painting-estimate.vercel.app"
+additional_redirect_urls = [
+  "http://localhost:5173/**",
+  "http://localhost:5174/**",
+  "https://painting-estimate.vercel.app/**",
+]
 
 [storage]
 enabled = true
