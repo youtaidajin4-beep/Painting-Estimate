@@ -13,6 +13,7 @@ const styles = `
   .login-btn.primary { background: #1b7f3b; color: #fff; border-color: #1b7f3b; }
   .login-btn.primary:disabled { opacity: 0.6; cursor: not-allowed; }
   .login-btn.ghost { background: #f2f2f7; border-color: #dde1e6; }
+  .login-btn.link { background: transparent; border: none; color: #1b7f3b; font-size: 14px; margin: 4px 0 0; padding: 8px; }
   .login-divider { text-align: center; color: #86868b; font-size: 13px; margin: 18px 0; }
   .login-input { width: 100%; padding: 12px 14px; border: 1px solid #dde1e6; border-radius: 10px; font-size: 15px; margin-bottom: 10px; box-sizing: border-box; }
   .login-msg { font-size: 13px; color: #1b7f3b; margin-top: 8px; line-height: 1.6; }
@@ -20,38 +21,73 @@ const styles = `
   .login-note { font-size: 13px; color: #b45309; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; line-height: 1.6; }
 `;
 
+type Mode = "login" | "signup";
+
 interface LoginPageProps {
   onOfflineContinue?: () => void;
 }
 
 export function LoginPage({ onOfflineContinue }: LoginPageProps) {
-  const { signInWithEmail } = useAuth();
+  const { signInWithPassword, signUpWithPassword } = useAuth();
+  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const cloudReady = isSupabaseConfigured;
   const showOffline = Boolean(onOfflineContinue && import.meta.env.DEV);
 
-  const handleLogin = async () => {
+  const resetMessages = () => {
     setErr("");
     setMsg("");
+  };
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    resetMessages();
+    setPassword("");
+    setPasswordConfirm("");
+  };
+
+  const handleSubmit = async () => {
+    resetMessages();
     if (!email.trim()) {
       setErr("メールアドレスを入力してください");
+      return;
+    }
+    if (!password) {
+      setErr("パスワードを入力してください");
+      return;
+    }
+    if (password.length < 6) {
+      setErr("パスワードは6文字以上で入力してください");
+      return;
+    }
+    if (mode === "signup" && password !== passwordConfirm) {
+      setErr("パスワード（確認）が一致しません");
       return;
     }
     if (!cloudReady) {
       setErr("ログイン機能を準備中です。しばらくしてから再度お試しください。");
       return;
     }
+
     setBusy(true);
-    const res = await signInWithEmail(email.trim());
+    const res =
+      mode === "login"
+        ? await signInWithPassword(email.trim(), password)
+        : await signUpWithPassword(email.trim(), password);
     setBusy(false);
-    if (res.error) setErr(res.error);
-    else {
-      setMsg(
-        "ログインリンクをメールで送信しました。メール内のリンクをクリックするとログインできます。初回の方も同じ手順で登録できます。"
-      );
+
+    if (res.error) {
+      setErr(res.error);
+      return;
+    }
+
+    if (mode === "signup") {
+      setMsg("アカウントを作成しました。ログインしています…");
     }
   };
 
@@ -60,12 +96,11 @@ export function LoginPage({ onOfflineContinue }: LoginPageProps) {
       <style>{styles}</style>
       <div className="login-card">
         <h1 className="login-title">塗装見積 Pro</h1>
-        <p className="login-sub">
-          会社ごとにデータとロゴが分離されたクラウド版です。
-        </p>
+        <p className="login-sub">会社ごとにデータとロゴが分離されたクラウド版です。</p>
         <p className="login-hint">
-          メールアドレスを入力して「ログインする」を押してください。届いたリンクをクリックすればログイン完了です。
-          初回は会社の作成画面が表示されます。
+          {mode === "login"
+            ? "メールアドレスとパスワードでログインしてください。次回からは自動でログイン状態が続きます。"
+            : "初回のみアカウントを作成してください。作成後は同じメールとパスワードでログインできます。"}
         </p>
 
         {!cloudReady && (
@@ -77,14 +112,39 @@ export function LoginPage({ onOfflineContinue }: LoginPageProps) {
         <input
           className="login-input"
           type="email"
-          placeholder="name@company.co.jp"
+          placeholder="メールアドレス"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           autoComplete="email"
         />
-        <button className="login-btn primary" disabled={busy} onClick={handleLogin}>
-          {busy ? "送信中…" : "ログインする"}
+        <input
+          className="login-input"
+          type="password"
+          placeholder="パスワード（6文字以上）"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+        />
+        {mode === "signup" && (
+          <input
+            className="login-input"
+            type="password"
+            placeholder="パスワード（確認）"
+            value={passwordConfirm}
+            onChange={(e) => setPasswordConfirm(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            autoComplete="new-password"
+          />
+        )}
+
+        <button className="login-btn primary" disabled={busy} onClick={handleSubmit}>
+          {busy ? "処理中…" : mode === "login" ? "ログインする" : "アカウントを作成する"}
+        </button>
+
+        <button className="login-btn link" type="button" onClick={() => switchMode(mode === "login" ? "signup" : "login")}>
+          {mode === "login" ? "初めての方はこちら（新規登録）" : "すでにアカウントをお持ちの方はログイン"}
         </button>
 
         {showOffline && (
