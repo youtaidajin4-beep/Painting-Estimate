@@ -726,7 +726,7 @@ const css = `
   input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   button { touch-action: manipulation; }
-  .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; background: #F4F5F7; min-height: 100vh; color: ${INK}; -webkit-font-smoothing: antialiased; font-size: 14px; }
+  .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; background: #F4F5F7; min-height: 100vh; color: ${INK}; -webkit-font-smoothing: antialiased; font-size: 14px; overflow-x: hidden; max-width: 100vw; }
   .num { font-variant-numeric: tabular-nums; letter-spacing: 0; }
   .wrap { max-width: 960px; margin: 0 auto; padding: 18px 16px 56px; }
   .page-head { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 2px 14px; flex-wrap: wrap; gap: 4px; }

@@ -941,7 +941,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     button { touch-action: manipulation; }
-    .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #F4F5F7; min-height: 100vh; color: #1D1D1F; -webkit-font-smoothing: antialiased; }
+    .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #F4F5F7; min-height: 100vh; color: #1D1D1F; -webkit-font-smoothing: antialiased; overflow-x: hidden; max-width: 100vw; }
     .num { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.01em; }
     h1, h2, h3, h4 { letter-spacing: -.022em; }
     input, select, textarea { font-family: inherit; font-size: 16px; border: 1px solid #C9CFD6; border-radius: 8px; padding: 11px 12px; background: #fff; color: #1D1D1F; width: 100%; appearance: none; }
@@ -1017,6 +1017,38 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     }
     @media (min-width: 1700px) {
       .home-main .list-col { grid-template-columns: repeat(3, 1fr); }
+    }
+    .sticky-foot {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-top: 1px solid #E5E5EA;
+      max-width: 100vw;
+      box-sizing: border-box;
+    }
+    .sticky-foot-in {
+      max-width: 620px; margin: 0 auto;
+      display: flex; gap: 10px; align-items: stretch;
+    }
+    .sticky-foot .btn {
+      width: auto; flex: 1; min-width: 0;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 48px; padding: 12px 14px; line-height: 1.3;
+      text-align: center; white-space: nowrap;
+    }
+    .sticky-foot .btn-wide { flex: 1.4; }
+    .sticky-foot .btn-input {
+      flex: 1; min-width: 0;
+      padding: 12px 14px; min-height: 48px; line-height: 1.3;
+      border: 1px solid #D1D1D6; border-radius: 10px; background: #fff;
+      font-size: 15px; box-sizing: border-box;
+    }
+    .page-with-foot { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important; }
+    @media (max-width: 480px) {
+      .rep-photo-row { flex-direction: column !important; }
+      .rep-photo-row .rep-thumb { width: 100% !important; height: auto !important; aspect-ratio: 1; }
+      .grid-2-mobile { grid-template-columns: 1fr !important; }
     }
     .appbar { position: sticky; top: 0; z-index: 40; background: #fff; border-bottom: 1px solid #DDE1E6; }
     .appbar-in { max-width: none; margin: 0; padding: 8px 18px; display: flex; justify-content: space-between; align-items: center; min-height: 50px; }
@@ -1678,7 +1710,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             <button className="btn btn-ac btn-mini" onClick={async () => { await saveCur(cur); setDocTab("見積書"); setView("docs"); }}>書類</button>
           </div>
         </div></header>
-        <div className="colw" style={{ maxWidth: 620, margin: "0 auto", padding: "18px 16px 150px" }}>
+        <div className="colw page-with-foot" style={{ maxWidth: 620, margin: "0 auto", padding: "18px 16px" }}>
           <h2 style={{ margin: "0 0 14px", fontSize: 24, fontWeight: 800 }}>内訳の編集</h2>
 
           <div className="card" style={{ padding: 16, marginBottom: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1766,10 +1798,10 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
           </div>
         </div>
 
-        <div className="no-print" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(255,255,255,.92)", backdropFilter: "blur(14px)", borderTop: "1px solid #E5E5EA", padding: "12px 16px calc(14px + env(safe-area-inset-bottom))", zIndex: 30 }}>
-          <div className="colw" style={{ maxWidth: 620, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14 }}>
+        <div className="sticky-foot no-print">
+          <div className="sticky-foot-in">
             <div style={{ flex: 1 }}><MarginBar margin={c.margin} alert={set.marginAlert} /></div>
-            <div style={{ textAlign: "right" }}>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>合計（税込）</div>
               <div className="num" style={{ fontSize: 22 }}>{yen(c.total)}</div>
             </div>
@@ -1790,19 +1822,19 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
           <button className="btn btn-bar btn-mini" onClick={() => setView("home")}>← 保存して戻る</button>
           <button className="btn btn-ac btn-mini" onClick={() => setView("repDoc")}>報告書を見る</button>
         </div></header>
-        <div className="colw" style={{ maxWidth: 620, margin: "0 auto", padding: "18px 16px 120px" }}>
+        <div className="colw page-with-foot" style={{ maxWidth: 620, margin: "0 auto", padding: "18px 16px" }}>
           <div className="eyebrow">SURVEY REPORT</div>
           <h2 style={{ margin: "4px 0 14px", fontSize: 24, fontWeight: 800 }}>調査報告書の作成</h2>
 
           <div className="eyebrow" style={{ margin: "0 4px 8px" }}>1. 物件情報</div>
           <div className="card" style={{ padding: 16, marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }} className="grid-2-mobile">
               <Field label="調査日"><input type="date" value={r.date} onChange={(e) => put({ date: e.target.value })} /></Field>
               <Field label="宛先（任意）"><input value={r.customer} onChange={(e) => put({ customer: e.target.value })} placeholder="○○様 / ○○御中" /></Field>
             </div>
             <Field label="物件名"><input value={r.name} onChange={(e) => put({ name: e.target.value })} placeholder="○○ビル / ○○様邸" /></Field>
             <Field label="現場場所"><input value={r.site} onChange={(e) => put({ site: e.target.value })} placeholder="○○市○○町1-2-3" /></Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }} className="grid-2-mobile">
               <Field label="既存下地"><input value={r.base} onChange={(e) => put({ base: e.target.value })} placeholder="RC構造 / サイディング" /></Field>
               <Field label="工事仕様"><input value={r.spec} onChange={(e) => put({ spec: e.target.value })} /></Field>
               <Field label="築年数（任意）"><input value={r.age || ""} onChange={(e) => put({ age: e.target.value })} placeholder="築15年" /></Field>
@@ -1859,7 +1891,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                 {r.insurance.on && <span style={{ background: "#FF9F0A", color: "#fff", borderRadius: 20, padding: "3px 11px", fontSize: 11.5, fontWeight: 800, marginLeft: "auto" }}>✓ ON</span>}
               </label>
               {r.insurance.on && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }} className="grid-2-mobile">
                   <Field label="被災日（わかれば）"><input type="date" value={r.insurance.eventDate} onChange={(e) => put({ insurance: { ...r.insurance, eventDate: e.target.value } })} /></Field>
                   <Field label="想定される原因">
                     <select value={r.insurance.cause} onChange={(e) => put({ insurance: { ...r.insurance, cause: e.target.value } })}>
@@ -1880,8 +1912,8 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
           </div>
           {repPhotos.map((p, idx) => (
             <div key={p.id} className="card" style={{ padding: 14, marginBottom: 12 }}>
-              <div style={{ display: "flex", gap: 12 }}>
-                <div style={{ position: "relative", width: 108, height: 108, flexShrink: 0, cursor: "zoom-in" }} onClick={() => { setMarkEdit(p.id); setMarkSize(16); }}>
+              <div style={{ display: "flex", gap: 12 }} className="rep-photo-row">
+                <div className="rep-thumb" style={{ position: "relative", width: 108, height: 108, flexShrink: 0, cursor: "zoom-in" }} onClick={() => { setMarkEdit(p.id); setMarkSize(16); }}>
                   <img src={p.data} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12, display: "block" }} />
                   {(p.marks || []).map((m, mi) => <span key={mi} className="mark" style={{ left: m.x + "%", top: m.y + "%", width: (m.s || 16) + "%" }} />)}
                   {(p.marks || []).length > 0 && <span style={{ position: "absolute", right: 4, bottom: 4, background: "#FF3B30", color: "#fff", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontWeight: 800 }} className="num">○{(p.marks || []).length}</span>}
@@ -1978,13 +2010,13 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             </div>
           );
         })()}
-        <div className="no-print" style={{ position: "fixed", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom))", background: "rgba(255,255,255,.86)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", borderTop: ".5px solid rgba(0,0,0,.12)", zIndex: 40 }}>
-          <div className="colw" style={{ maxWidth: 620, margin: "0 auto", display: "flex", gap: 10 }}>
-            <label className="btn btn-soft" style={{ flex: 1, cursor: "pointer", padding: "13px 0" }}>
+        <div className="sticky-foot no-print">
+          <div className="sticky-foot-in">
+            <label className="btn btn-soft" style={{ cursor: "pointer" }}>
               ＋ 写真を追加
               <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) addRepPhotoFiles(fs); }} />
             </label>
-            <button className="btn btn-ac" style={{ flex: 1.4, padding: "13px 0" }} onClick={() => setView("repDoc")}>報告書を見る →</button>
+            <button className="btn btn-ac btn-wide" onClick={() => setView("repDoc")}>報告書を見る →</button>
           </div>
         </div>
       </div>
@@ -2275,7 +2307,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
           <span style={{ fontSize: 15, fontWeight: 700 }}>使い方サポート</span>
           <span style={{ width: 60 }} />
         </div></header>
-        <div className="colw" style={{ maxWidth: 620, margin: "0 auto", padding: "18px 16px 140px" }}>
+        <div className="colw page-with-foot" style={{ maxWidth: 620, margin: "0 auto", padding: "18px 16px" }}>
 
           <div className="card" style={{ padding: 16, marginBottom: 12 }}>
             <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8 }}>こんにちは！<b>{appLabel}のサポート</b>です。知りたいことのカテゴリを選ぶか、下の欄に質問を入力してください。</p>
@@ -2331,10 +2363,10 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
           </div>
         </div>
 
-        <div className="no-print" style={{ position: "fixed", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom))", background: "rgba(255,255,255,.86)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", borderTop: ".5px solid rgba(0,0,0,.12)", zIndex: 40 }}>
-          <div className="colw" style={{ maxWidth: 620, margin: "0 auto", display: "flex", gap: 8 }}>
-            <input value={helpQ} onChange={(e) => setHelpQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(helpQ); }} placeholder="質問を入力（例：赤丸のつけ方）" style={{ flex: 1 }} />
-            <button className="btn btn-ac" style={{ padding: "0 20px", flexShrink: 0 }} disabled={!helpQ.trim()} onClick={() => ask(helpQ)}>送信</button>
+        <div className="sticky-foot no-print">
+          <div className="sticky-foot-in">
+            <input className="btn-input" value={helpQ} onChange={(e) => setHelpQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(helpQ); }} placeholder="質問を入力（例：赤丸のつけ方）" />
+            <button className="btn btn-ac" style={{ flexShrink: 0 }} disabled={!helpQ.trim()} onClick={() => ask(helpQ)}>送信</button>
           </div>
         </div>
       </div>
