@@ -1126,10 +1126,12 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       .sheet-print table { min-width: 0 !important; width: 100% !important; table-layout: auto !important; }
       .sheet-print tr, .sheet-print figure { page-break-inside: avoid; break-inside: avoid; }
       .sheet-print h2, .sheet-print h3 { page-break-after: avoid; break-after: avoid; }
+      .sheet-print h2 { margin-bottom: 12px !important; padding-bottom: 8px !important; }
+      .sheet-print > *:last-child { margin-bottom: 0 !important; }
       .sheet-print img { max-width: 100% !important; max-height: 88mm; object-fit: contain; }
       .rep-page {
         page-break-after: always; break-after: page;
-        margin: 0 auto !important; box-sizing: border-box;
+        margin: 0 !important; box-sizing: border-box;
       }
       .rep-page:last-child { page-break-after: auto; break-after: auto; }
       .rep-page img { max-width: 100% !important; max-height: 110mm; object-fit: contain; }
@@ -2067,7 +2069,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       @page { size: A4 ${orient === "縦" ? "portrait" : "landscape"}; }
       html, body, #root, .root { overflow: visible !important; max-width: none !important; }
       .print-area { padding: 0 !important; margin: 0 !important; }
-      .rep-page { page-break-after: always; break-after: page; margin: 0 auto !important; min-height: 0 !important; max-width: 100% !important; width: 100% !important; }
+      .rep-page { page-break-after: always; break-after: page; margin: 0 !important; min-height: 0 !important; max-width: 100% !important; width: 100% !important; }
       .rep-page:last-child { page-break-after: auto; break-after: auto; }
       .rp-cover { max-height: ${orient === "縦" ? "150mm" : "128mm"} !important; }
       .rp-hero { ${orient === "縦" ? "max-height: 145mm !important; width: auto !important;" : "width: 60% !important; height: 92mm !important; object-fit: cover !important;"} max-width: 100% !important; margin: 0 auto; }

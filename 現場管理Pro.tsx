@@ -850,6 +850,8 @@ const css = `
     .no-print, .appbar, .menu-ovl, .toastx { display: none !important; }
     .wrap { padding: 0 !important; max-width: none !important; margin: 0 !important; }
     .panel { box-shadow: none !important; border: none !important; border-radius: 0 !important; overflow: visible !important; padding: ${PRINT_SHEET_PADDING} !important; margin: 0 !important; }
+    .panel > div:first-child { margin-bottom: 6px !important; }
+    .panel > p.sub { margin-top: 6px !important; margin-bottom: 0 !important; }
     .dmn { font-size: 9.5px; width: 100%; table-layout: fixed; }
     .dmn th, .dmn td { padding: 2px 1px; word-break: break-all; }
     .dmn th:first-child, .dmn td:first-child { width: 72px; word-break: normal; }
