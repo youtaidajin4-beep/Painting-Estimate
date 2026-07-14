@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BrandHeader } from "./src/components/BrandHeader";
+import { InvitePanel } from "./src/components/InvitePanel";
+import { useAppShell } from "./src/context/AppShellContext";
 
 // ---- スタンドアロン実行用：window.storage が無い環境では localStorage で保存 ----
 if (typeof window !== "undefined" && !window.storage) {
@@ -38,6 +40,8 @@ export default function GenbaKanriPro({ branding = null, tenantMode = false }) {
   const PRI = branding?.primary_color || (typeof window !== "undefined" && window.__tenantBranding?.primary_color) || "#1B7F3B";
   const [view, setView] = useState("home"); // home | attend | report | site | crew | sheet | settings | done
   const [menuOpen, setMenuOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const appShell = useAppShell();
   const [sites, setSites] = useState([]);
   const [crew, setCrew] = useState([]);
   const [att, setAtt] = useState([]);
@@ -131,30 +135,48 @@ export default function GenbaKanriPro({ branding = null, tenantMode = false }) {
     sheet: <><rect x="4.5" y="3.6" width="15" height="16.8" rx="1.6" /><path d="M8 8h8M8 12h8M8 16h4.5" /></>,
     check: <><circle cx="12" cy="12" r="8.4" /><path d="m8.4 12.2 2.4 2.4 4.8-5.2" /></>,
     building: <><rect x="5" y="4" width="14" height="16.4" rx="1.5" /><path d="M9 8.2h1.6M13.4 8.2H15M9 12h1.6M13.4 12H15M10.5 20.4v-3.6h3v3.6" /></>,
+    paint: <><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></>,
+    invite: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></>,
+    logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>,
   };
   const Icon = ({ k }) => <svg className="mi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{icons[k]}</svg>;
 
-  const Menu = () => menuOpen ? (
-    <div className="menu-ovl no-print" onClick={() => setMenuOpen(false)}>
-      <nav className="menu-panel" onClick={(ev) => ev.stopPropagation()}>
-        <div className="menu-head">
-          <Logo />
-          <button className="menu-x" aria-label="閉じる" onClick={() => setMenuOpen(false)}>✕</button>
-        </div>
-        {[
-          ["person", "職人管理", () => setView("crew")],
-          ["sheet", "出面表（印刷）", () => setView("sheet")],
-          ["check", "完了した現場", () => setView("done")],
-          ["building", "会社情報・データ", () => setView("settings")],
-        ].map(([k, label, go]) => (
-          <button key={label} className="menu-item" onClick={() => { setMenuOpen(false); go(); }}>
-            <Icon k={k} />{label}<span className="mi-arrow">›</span>
-          </button>
-        ))}
-        {co.name && <div className="menu-co">{co.name}</div>}
-      </nav>
-    </div>
-  ) : null;
+  const Menu = () => {
+    const items = [
+      ["person", "職人管理", () => setView("crew")],
+      ["sheet", "出面表（印刷）", () => setView("sheet")],
+      ["check", "完了した現場", () => setView("done")],
+      ["building", "会社情報・データ", () => setView("settings")],
+    ];
+    if (tenantMode && appShell) {
+      items.push(["paint", "塗装見積を開く", () => appShell.switchApp("paint")]);
+      if (appShell.canInvite) {
+        items.push(["invite", "メンバー招待", () => setInviteOpen(true)]);
+      }
+      items.push(["logout", "ログアウト", () => appShell.signOut()]);
+    }
+    return (
+      <>
+        {menuOpen ? (
+          <div className="menu-ovl no-print" onClick={() => setMenuOpen(false)}>
+            <nav className="menu-panel" onClick={(ev) => ev.stopPropagation()}>
+              <div className="menu-head">
+                <Logo />
+                <button className="menu-x" aria-label="閉じる" onClick={() => setMenuOpen(false)}>✕</button>
+              </div>
+              {items.map(([k, label, go]) => (
+                <button key={label} className="menu-item" onClick={() => { setMenuOpen(false); go(); }}>
+                  <Icon k={k} />{label}<span className="mi-arrow">›</span>
+                </button>
+              ))}
+              {co.name && <div className="menu-co">{co.name}</div>}
+            </nav>
+          </div>
+        ) : null}
+        {tenantMode && <InvitePanel open={inviteOpen} onClose={() => setInviteOpen(false)} />}
+      </>
+    );
+  };
 
   if (!loaded) return <div className="root"><style>{css}</style></div>;
 

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BrandHeader } from "./src/components/BrandHeader";
+import { InvitePanel } from "./src/components/InvitePanel";
+import { useAppShell } from "./src/context/AppShellContext";
 
 // ---- スタンドアロン実行用：window.storage が無い環境では localStorage で保存 ----
 if (typeof window !== "undefined" && !window.storage) {
@@ -628,6 +630,8 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
   const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState("home"); // home | wizard | edit | present | print | settings
   const [menuOpen, setMenuOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const appShell = useAppShell();
   const [cur, setCur] = useState(null);
   const [step, setStep] = useState(0);
   const [toast, setToast] = useState("");
@@ -1115,17 +1119,30 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                   building: <><rect x="5" y="4" width="14" height="16.4" rx="1.5" /><path d="M9 8.2h1.6M13.4 8.2H15M9 12h1.6M13.4 12H15M10.5 20.4v-3.6h3v3.6" /></>,
                   yen: <><circle cx="12" cy="12" r="8.4" /><path d="M8.8 7.6 12 12l3.2-4.4M12 12v4.8M9.4 12.6h5.2M9.4 15h5.2" /></>,
                   help: <><circle cx="12" cy="12" r="8.4" /><path d="M9.7 9.6c.2-1.3 1.2-2.1 2.4-2.1 1.3 0 2.3.9 2.3 2.1 0 1.7-2.3 1.9-2.3 3.5" /><circle cx="12.1" cy="16.3" r=".4" fill="currentColor" stroke="none" /></>,
+                  site: <><path d="M3 21h18" /><path d="M6 21V7l6-4 6 4v14" /><path d="M9 21v-6h6v6" /></>,
+                  invite: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></>,
+                  logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>,
                 };
                 const Svg = ({ k }) => (
                   <svg className="mi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{ic[k]}</svg>
                 );
-                return [
+                const items = [
                   ["person", "顧客管理", () => setView("clients")],
                   ["history", "工事経歴", () => setView("history")],
                   ["building", "会社情報", () => { setSetTab("基本情報"); setView("settings"); }],
                   ["yen", "単価設定", () => { setSetTab("タイプ別単価"); setView("settings"); }],
                   ["help", "使い方・ヘルプ", () => { setHelpLog([]); setHelpCat(""); setView("help"); }],
-                ].map(([k, label, go]) => (
+                ];
+                if (tenantMode && appShell) {
+                  items.push(
+                    ["site", "現場管理を開く", () => appShell.switchApp("genba")],
+                  );
+                  if (appShell.canInvite) {
+                    items.push(["invite", "メンバー招待", () => setInviteOpen(true)]);
+                  }
+                  items.push(["logout", "ログアウト", () => appShell.signOut()]);
+                }
+                return items.map(([k, label, go]) => (
                   <button key={label} className="menu-item" onClick={() => { setMenuOpen(false); go(); }}>
                     <Svg k={k} />{label}<span className="mi-arrow">›</span>
                   </button>
@@ -1134,6 +1151,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             </nav>
           </div>
         )}
+        {tenantMode && <InvitePanel open={inviteOpen} onClose={() => setInviteOpen(false)} />}
         <div className="wrapx">
           <div className="page-top">
             <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-.02em", margin: 0 }}>見積管理</h1>
