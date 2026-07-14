@@ -1041,6 +1041,14 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       text-align: center; white-space: nowrap;
     }
     .sticky-foot .btn-wide { flex: 1.4; }
+    .sticky-foot label.btn { position: relative; }
+    .sticky-foot label.btn .btn-label-t {
+      flex: 1; width: 100%; text-align: center;
+    }
+    .sticky-foot label.btn input[type="file"] {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer;
+    }
     .sticky-foot .btn-input {
       flex: 1; min-width: 0;
       padding: 12px 14px; min-height: 48px; line-height: 1.3;
@@ -2034,8 +2042,8 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
         <div className="sticky-foot no-print">
           <div className="sticky-foot-in">
             <label className="btn btn-soft" style={{ cursor: "pointer" }}>
-              ＋ 写真を追加
-              <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) addRepPhotoFiles(fs); }} />
+              <span className="btn-label-t">＋ 写真を追加</span>
+              <input type="file" accept="image/*" multiple onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) addRepPhotoFiles(fs); }} />
             </label>
             <button className="btn btn-ac btn-wide" onClick={() => setView("repDoc")}>報告書を見る →</button>
           </div>
