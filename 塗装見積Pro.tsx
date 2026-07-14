@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { BrandHeader } from "./src/components/BrandHeader";
 import { InvitePanel } from "./src/components/InvitePanel";
 import { useAppShell } from "./src/context/AppShellContext";
-import { PRINT_HINT, PRINT_SHEET_PADDING, printPageBase } from "./src/styles/printShared";
+import { PRINT_A4_HEIGHT, PRINT_A4_WIDTH, PRINT_HINT, PRINT_SHEET_PADDING, printPageBase } from "./src/styles/printShared";
 
 // ---- スタンドアロン実行用：window.storage が無い環境では localStorage で保存 ----
 if (typeof window !== "undefined" && !window.storage) {
@@ -964,6 +964,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ${accentColor}; }
     .sub { color: #86868B; }
     .sheet-print td { word-break: break-word; }
+    .print-est-spacer { display: none; }
     .steps { display: flex; gap: 4px; margin: 14px 0 20px; }
     .stepd { flex: 1; text-align: center; font-size: 11px; color: #AEAEB2; }
     .stepd i { display: block; width: 28px; height: 28px; border-radius: 50%; background: #E9E9EC; color: #8E8E93; font-style: normal; font-weight: 700; line-height: 28px; margin: 0 auto 5px; font-size: 13px; transition: all .2s; }
@@ -1109,7 +1110,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
   @media print {
       html, body, #root, .root { overflow: visible !important; max-width: none !important; min-height: auto !important; }
       ${printPageBase}
-      @page { size: A4 portrait; }
+      @page { size: A4; margin: 0; }
       .no-print, .sticky-foot, .appbar, .menu-ovl, .markmodal { display: none !important; }
       .page-with-foot { padding-bottom: 0 !important; }
       .root { background: #fff !important; padding: 0 !important; }
@@ -1141,6 +1142,23 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       .card { box-shadow: none !important; }
       .print-photos { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
       .print-photos img { width: 100% !important; height: auto !important; border-radius: 4px !important; }
+      .sheet-estimate {
+        width: ${PRINT_A4_WIDTH} !important;
+        min-height: ${PRINT_A4_HEIGHT} !important;
+        height: ${PRINT_A4_HEIGHT} !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: ${PRINT_SHEET_PADDING} !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .print-est-main { flex: 0 0 auto; }
+      .print-est-spacer { display: block !important; flex: 1 1 auto; min-height: 0; }
+      .print-est-foot { flex: 0 0 auto; margin-top: 0 !important; }
+      .sheet-estimate .print-est-foot > div { margin-top: 0 !important; }
     }
   `;
 
@@ -2659,7 +2677,8 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
           <p className="sub" style={{ fontSize: 11, margin: "6px 4px 0", lineHeight: 1.5 }}>{PRINT_HINT}</p>
         </div>
         {docTab === "見積書" && (
-        <div className="card sheet-print" style={{ maxWidth: 760, margin: "0 auto", padding: "34px 24px" }}>
+        <div className="card sheet-print sheet-estimate" style={{ maxWidth: 760, margin: "0 auto", padding: "34px 24px" }}>
+          <div className="print-est-main">
           <h2 style={{ textAlign: "center", letterSpacing: ".45em", fontSize: 22, margin: "0 0 20px", borderBottom: `3px double ${INK}`, paddingBottom: 10 }}>御 見 積 書</h2>
           <div style={{ fontSize: 17, fontWeight: 700, borderBottom: `1px solid ${INK}`, paddingBottom: 4, marginBottom: 12, maxWidth: 430 }}><Ed v={cur.customer || "＿＿＿＿"} on={(t) => saveCur({ ...cur, customer: t })} /> 様</div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -2714,9 +2733,13 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
               </tr>
             </tbody></table>
           </div>
+          </div>
+          <div className="print-est-spacer" aria-hidden="true" />
+          <div className="print-est-foot">
           {cur.notes && (
             <div style={{ marginTop: 18, fontSize: 12, color: "#4A4A4F", whiteSpace: "pre-wrap", borderTop: "1px solid #E5E5EA", paddingTop: 10 }}><Ed multi v={cur.notes} on={(t) => saveCur({ ...cur, notes: t })} /></div>
           )}
+          </div>
         </div>
         )}
 
