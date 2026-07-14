@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BrandHeader } from "./src/components/BrandHeader";
 import { InvitePanel } from "./src/components/InvitePanel";
 import { useAppShell } from "./src/context/AppShellContext";
+import { PRINT_HINT, PRINT_SHEET_PADDING, printPageBase } from "./src/styles/printShared";
 
 // ---- スタンドアロン実行用：window.storage が無い環境では localStorage で保存 ----
 if (typeof window !== "undefined" && !window.storage) {
@@ -614,6 +615,7 @@ export default function GenbaKanriPro({ branding = null, tenantMode = false }) {
               </select>
             </label>
           </div>
+          <p className="sub no-print" style={{ fontSize: 11, margin: "0 0 12px", lineHeight: 1.5 }}>{PRINT_HINT}</p>
           <div className="panel" style={{ padding: 16, overflowX: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
               <b style={{ fontSize: 15 }}>出面表　{y}年{m}月{sheetSite ? "　" + siteName(sheetSite) : ""}</b>
@@ -847,11 +849,12 @@ const css = `
     html, body, #root, .root { overflow: visible !important; max-width: none !important; min-height: auto !important; background: #fff !important; }
     .no-print, .appbar, .menu-ovl, .toastx { display: none !important; }
     .wrap { padding: 0 !important; max-width: none !important; margin: 0 !important; }
-    .panel { box-shadow: none !important; border: none !important; border-radius: 0 !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+    .panel { box-shadow: none !important; border: none !important; border-radius: 0 !important; overflow: visible !important; padding: ${PRINT_SHEET_PADDING} !important; margin: 0 !important; }
     .dmn { font-size: 9.5px; width: 100%; table-layout: fixed; }
     .dmn th, .dmn td { padding: 2px 1px; word-break: break-all; }
     .dmn th:first-child, .dmn td:first-child { width: 72px; word-break: normal; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    @page { size: A4 landscape; margin: 10mm 8mm; }
+    ${printPageBase}
+    @page { size: A4 landscape; }
   }
 `;

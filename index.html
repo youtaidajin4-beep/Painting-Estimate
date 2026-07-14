@@ -10,7 +10,8 @@
         html, body, #root { overflow-x: hidden; }
       }
       @media print {
-        html, body, #root { overflow: visible !important; max-width: none !important; background: #fff !important; }
+        @page { margin: 0; }
+        html, body, #root { overflow: visible !important; max-width: none !important; background: #fff !important; margin: 0 !important; padding: 0 !important; }
       }
     </style>
   </head>

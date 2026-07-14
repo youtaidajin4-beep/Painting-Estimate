@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { BrandHeader } from "./src/components/BrandHeader";
 import { InvitePanel } from "./src/components/InvitePanel";
 import { useAppShell } from "./src/context/AppShellContext";
+import { PRINT_HINT, PRINT_SHEET_PADDING, printPageBase } from "./src/styles/printShared";
 
 // ---- スタンドアロン実行用：window.storage が無い環境では localStorage で保存 ----
 if (typeof window !== "undefined" && !window.storage) {
@@ -1107,7 +1108,8 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
 
   @media print {
       html, body, #root, .root { overflow: visible !important; max-width: none !important; min-height: auto !important; }
-      @page { size: A4 portrait; margin: 12mm 10mm; }
+      ${printPageBase}
+      @page { size: A4 portrait; }
       .no-print, .sticky-foot, .appbar, .menu-ovl, .markmodal { display: none !important; }
       .page-with-foot { padding-bottom: 0 !important; }
       .root { background: #fff !important; padding: 0 !important; }
@@ -1116,7 +1118,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       .sheet-print {
         box-shadow: none !important; border: none !important; border-radius: 0 !important;
         margin: 0 auto !important; max-width: 100% !important; width: 100% !important;
-        padding: 10mm 8mm !important; font-size: 12px;
+        padding: ${PRINT_SHEET_PADDING} !important; font-size: 12px;
         break-inside: auto; page-break-inside: auto;
         -webkit-print-color-adjust: exact; print-color-adjust: exact;
       }
@@ -2061,7 +2063,8 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     const pgMinH = orient === "縦" ? Math.round(pw2 * 1.4142) : Math.round(pw2 / 1.4142);
     const coName2 = (set.company || "").split("\n")[0] || "";
     const pageCss = `@media print {
-      @page { size: A4 ${orient === "縦" ? "portrait" : "landscape"}; margin: ${orient === "縦" ? "10mm 10mm" : "9mm 11mm"}; }
+      ${printPageBase}
+      @page { size: A4 ${orient === "縦" ? "portrait" : "landscape"}; }
       html, body, #root, .root { overflow: visible !important; max-width: none !important; }
       .print-area { padding: 0 !important; margin: 0 !important; }
       .rep-page { page-break-after: always; break-after: page; margin: 0 auto !important; min-height: 0 !important; max-width: 100% !important; width: 100% !important; }
@@ -2070,7 +2073,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       .rp-hero { ${orient === "縦" ? "max-height: 145mm !important; width: auto !important;" : "width: 60% !important; height: 92mm !important; object-fit: cover !important;"} max-width: 100% !important; margin: 0 auto; }
       .rp-photo { max-height: ${orient === "縦" ? "72mm" : "60mm"} !important; max-width: 100% !important; }
       .tb3 .rp-photo { max-height: ${orient === "縦" ? "56mm" : "42mm"} !important; }
-      .sheet-print.rep-page { box-shadow: none !important; padding: 6mm 6mm !important; }
+      .sheet-print.rep-page { box-shadow: none !important; padding: ${PRINT_SHEET_PADDING} !important; }
       ${orient === "縦" ? "" : ".cvgrid { flex-wrap: nowrap !important; } .sumgrid { flex-wrap: nowrap !important; gap: 10px !important; margin-top: 8px !important; }"}
       .sumcols { column-count: ${orient === "縦" ? 1 : 2} !important; }
       .rep-page table { font-size: 10.5px !important; width: 100% !important; min-width: 0 !important; }
@@ -2160,6 +2163,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                 onChange={async (v) => { const L = v.includes("台帳") ? "台帳" : "所見"; await saveCurRep({ ...r, layout: L }); flash(L === "台帳" ? "台帳式（3枚/頁・保険提出フォーマット）に切り替えました" : "所見つき（2枚/頁）に切り替えました"); }} />
             </div>
             {r.insurance.on && <span style={{ background: "#FF9F0A", color: "#fff", borderRadius: 20, padding: "6px 14px", fontSize: 12.5, fontWeight: 800, flexShrink: 0 }}>✓ 保険提出用モード</span>}
+            <p className="sub" style={{ fontSize: 11, margin: 0, flex: "1 1 100%", lineHeight: 1.5 }}>{PRINT_HINT}</p>
           </div>
 
           <div className="pvouter" style={{ width: Math.round(pw2 * pvScale), height: pvH ? Math.round(pvH * pvScale) : undefined, margin: "0 auto", position: "relative", overflow: "visible" }}>
@@ -2650,6 +2654,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
         <div className="no-print" style={{ maxWidth: 760, margin: "0 auto 12px" }}>
           <Seg options={["見積書", "報告書", "仕様書", "請求書", "契約書"]} value={docTab} onChange={setDocTab} />
           <p className="sub" style={{ fontSize: 12, margin: "8px 4px 0" }}>点線の文字はタップしてそのまま書き換えられます。修正は保存され、他の書類にも反映されます。</p>
+          <p className="sub" style={{ fontSize: 11, margin: "6px 4px 0", lineHeight: 1.5 }}>{PRINT_HINT}</p>
         </div>
         {docTab === "見積書" && (
         <div className="card sheet-print" style={{ maxWidth: 760, margin: "0 auto", padding: "34px 24px" }}>
