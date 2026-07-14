@@ -941,7 +941,10 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     button { touch-action: manipulation; }
-    .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #F4F5F7; min-height: 100vh; color: #1D1D1F; -webkit-font-smoothing: antialiased; overflow-x: hidden; max-width: 100vw; }
+    .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #F4F5F7; min-height: 100vh; color: #1D1D1F; -webkit-font-smoothing: antialiased; }
+    @media screen {
+      .root { overflow-x: hidden; max-width: 100vw; }
+    }
     .num { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.01em; }
     h1, h2, h3, h4 { letter-spacing: -.022em; }
     input, select, textarea { font-family: inherit; font-size: 16px; border: 1px solid #C9CFD6; border-radius: 8px; padding: 11px 12px; background: #fff; color: #1D1D1F; width: 100%; appearance: none; }
@@ -1083,7 +1086,6 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     .act.dg { color: #FF3B30; }
     input[type=range] { padding: 0; height: 40px; box-shadow: none; accent-color: ${accentColor}; background: transparent; }
     input[type=checkbox] { width: 22px; height: 22px; accent-color: ${accentColor}; }
-    @page { size: A4 portrait; margin: 14mm 12mm; }
     @media (hover: hover) and (pointer: fine) {
     .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.15); filter: brightness(1.03); }
     .tile:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.10); }
@@ -1096,18 +1098,37 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
   }
 
   @media print {
-      .no-print { display: none !important; }
+      html, body, #root, .root { overflow: visible !important; max-width: none !important; min-height: auto !important; }
+      @page { size: A4 portrait; margin: 12mm 10mm; }
+      .no-print, .sticky-foot, .appbar, .menu-ovl, .markmodal { display: none !important; }
+      .page-with-foot { padding-bottom: 0 !important; }
       .root { background: #fff !important; padding: 0 !important; }
-      .root > div { padding: 0 !important; }
-      .sheet-print { box-shadow: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; max-width: 100% !important; padding: 0 !important; font-size: 12px; }
-      .tblscroll { overflow: visible !important; }
-      .sheet-print table { min-width: 0 !important; width: 100% !important; }
-      .sheet-print tr, .sheet-print figure { page-break-inside: avoid; }
-      .sheet-print h2 { page-break-after: avoid; }
-      .sheet-print img { max-height: 90mm; object-fit: contain; }
-      .rep-page { page-break-after: always; margin-bottom: 0 !important; }
-      .rep-page img { max-height: 110mm; }
+      .print-area { padding: 0 !important; margin: 0 !important; }
+      .print-area > .no-print { display: none !important; }
+      .sheet-print {
+        box-shadow: none !important; border: none !important; border-radius: 0 !important;
+        margin: 0 auto !important; max-width: 100% !important; width: 100% !important;
+        padding: 10mm 8mm !important; font-size: 12px;
+        break-inside: auto; page-break-inside: auto;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      }
+      .tblscroll { overflow: visible !important; width: 100% !important; }
+      .sheet-print table { min-width: 0 !important; width: 100% !important; table-layout: auto !important; }
+      .sheet-print tr, .sheet-print figure { page-break-inside: avoid; break-inside: avoid; }
+      .sheet-print h2, .sheet-print h3 { page-break-after: avoid; break-after: avoid; }
+      .sheet-print img { max-width: 100% !important; max-height: 88mm; object-fit: contain; }
+      .rep-page {
+        page-break-after: always; break-after: page;
+        margin: 0 auto !important; box-sizing: border-box;
+      }
+      .rep-page:last-child { page-break-after: auto; break-after: auto; }
+      .rep-page img { max-width: 100% !important; max-height: 110mm; object-fit: contain; }
+      .pvzoom { transform: none !important; width: 100% !important; max-width: 100% !important; }
+      .pvouter { width: auto !important; height: auto !important; overflow: visible !important; margin: 0 !important; }
       .ed { border-bottom: none !important; background: none !important; }
+      .card { box-shadow: none !important; }
+      .print-photos { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+      .print-photos img { width: 100% !important; height: auto !important; border-radius: 4px !important; }
     }
   `;
 
@@ -2033,24 +2054,26 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     const coName2 = (set.company || "").split("\n")[0] || "";
     const pageCss = `@media print {
       @page { size: A4 ${orient === "縦" ? "portrait" : "landscape"}; margin: ${orient === "縦" ? "10mm 10mm" : "9mm 11mm"}; }
-      .rep-page { page-break-after: always; }
-      .rep-page:last-child { page-break-after: auto; }
+      html, body, #root, .root { overflow: visible !important; max-width: none !important; }
+      .print-area { padding: 0 !important; margin: 0 !important; }
+      .rep-page { page-break-after: always; break-after: page; margin: 0 auto !important; min-height: 0 !important; max-width: 100% !important; width: 100% !important; }
+      .rep-page:last-child { page-break-after: auto; break-after: auto; }
       .rp-cover { max-height: ${orient === "縦" ? "150mm" : "128mm"} !important; }
       .rp-hero { ${orient === "縦" ? "max-height: 145mm !important; width: auto !important;" : "width: 60% !important; height: 92mm !important; object-fit: cover !important;"} max-width: 100% !important; margin: 0 auto; }
-      .rp-photo { max-height: ${orient === "縦" ? "72mm" : "60mm"} !important; }
+      .rp-photo { max-height: ${orient === "縦" ? "72mm" : "60mm"} !important; max-width: 100% !important; }
       .tb3 .rp-photo { max-height: ${orient === "縦" ? "56mm" : "42mm"} !important; }
-      .sheet-print { box-shadow: none !important; padding: 6mm 6mm !important; }
+      .sheet-print.rep-page { box-shadow: none !important; padding: 6mm 6mm !important; }
       ${orient === "縦" ? "" : ".cvgrid { flex-wrap: nowrap !important; } .sumgrid { flex-wrap: nowrap !important; gap: 10px !important; margin-top: 8px !important; }"}
       .sumcols { column-count: ${orient === "縦" ? 1 : 2} !important; }
-      .rep-page table { font-size: 10.5px !important; }
+      .rep-page table { font-size: 10.5px !important; width: 100% !important; min-width: 0 !important; }
       .rep-page h2 { font-size: 17px !important; padding: 6px 0 !important; margin-bottom: 2px !important; }
       .rep-page p { line-height: 1.7 !important; }
       .rep-page td, .rep-page th { padding: 3px 6px !important; }
       .pfoot { margin-top: auto !important; padding-top: 6px !important; }
-      .pvzoom { transform: none !important; width: auto !important; }
-      .pvouter { width: auto !important; height: auto !important; }
-      .rep-page { min-height: ${orient === "縦" ? "248mm" : "170mm"} !important; }
-      .cvpage { min-height: ${orient === "縦" ? "250mm" : "165mm"} !important; }
+      .pvzoom { transform: none !important; width: 100% !important; max-width: 100% !important; }
+      .pvouter { width: auto !important; height: auto !important; overflow: visible !important; margin: 0 !important; }
+      .cvpage { min-height: 0 !important; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
     .rep-page { display: flex; flex-direction: column; }
     .pvzoom .rp-hero { ${orient === "縦" ? "max-height: 595px; width: auto;" : "width: 60%; height: 345px; object-fit: cover;"} max-width: 94%; margin: 0 auto; display: block; }
@@ -2118,7 +2141,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             <button className="btn btn-ac btn-mini" onClick={() => { const t0 = document.title; document.title = (r.name || "物件") + "_調査報告書_" + r.date; try { window.print(); } catch { flash("印刷が開けない場合はスクリーンショットをご利用ください"); } setTimeout(() => { document.title = t0; }, 1500); }}>印刷 / PDF保存</button>
           </div>
         </div></header>
-        <div style={{ padding: "16px 8px 60px" }}>
+        <div className="print-area" style={{ padding: "16px 8px 60px" }}>
           <div className="no-print" style={{ maxWidth: pw2, margin: "0 auto 12px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ flex: "0 1 190px" }}>
               <Seg options={["A4 横", "A4 縦"]} value={orient === "縦" ? "A4 縦" : "A4 横"}
@@ -2615,7 +2638,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             <button className="btn btn-bar btn-mini" onClick={() => copyShare(cur)}>LINE用コピー</button>
           </div>
         </div></header>
-        <div style={{ padding: "16px 8px 60px" }}>
+        <div className="print-area" style={{ padding: "16px 8px 60px" }}>
         <div className="no-print" style={{ maxWidth: 760, margin: "0 auto 12px" }}>
           <Seg options={["見積書", "報告書", "仕様書", "請求書", "契約書"]} value={docTab} onChange={setDocTab} />
           <p className="sub" style={{ fontSize: 12, margin: "8px 4px 0" }}>点線の文字はタップしてそのまま書き換えられます。修正は保存され、他の書類にも反映されます。</p>
@@ -2701,7 +2724,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             )}
             {photos.length > 0 && (<>
               <div style={{ fontWeight: 700, fontSize: 14, margin: "18px 0 8px" }}>■ 現場写真</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="print-photos" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {photos.map((p) => (
                   <figure key={p.id} style={{ margin: 0 }}>
                     <img src={p.data} alt={p.tag} style={{ width: "100%", borderRadius: 8, display: "block" }} />

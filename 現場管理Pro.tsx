@@ -726,7 +726,10 @@ const css = `
   input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   button { touch-action: manipulation; }
-  .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; background: #F4F5F7; min-height: 100vh; color: ${INK}; -webkit-font-smoothing: antialiased; font-size: 14px; overflow-x: hidden; max-width: 100vw; }
+  .root { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; background: #F4F5F7; min-height: 100vh; color: ${INK}; -webkit-font-smoothing: antialiased; font-size: 14px; }
+  @media screen {
+    .root { overflow-x: hidden; max-width: 100vw; }
+  }
   .num { font-variant-numeric: tabular-nums; letter-spacing: 0; }
   .wrap { max-width: 960px; margin: 0 auto; padding: 18px 16px 56px; }
   .page-head { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 2px 14px; flex-wrap: wrap; gap: 4px; }
@@ -841,9 +844,14 @@ const css = `
   }
 
   @media print {
-    .no-print { display: none !important; }
-    .root { background: #fff; }
-    .panel { box-shadow: none; border: none; border-radius: 0; }
-    @page { size: A4 landscape; margin: 12mm; }
+    html, body, #root, .root { overflow: visible !important; max-width: none !important; min-height: auto !important; background: #fff !important; }
+    .no-print, .appbar, .menu-ovl, .toastx { display: none !important; }
+    .wrap { padding: 0 !important; max-width: none !important; margin: 0 !important; }
+    .panel { box-shadow: none !important; border: none !important; border-radius: 0 !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+    .dmn { font-size: 9.5px; width: 100%; table-layout: fixed; }
+    .dmn th, .dmn td { padding: 2px 1px; word-break: break-all; }
+    .dmn th:first-child, .dmn td:first-child { width: 72px; word-break: normal; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    @page { size: A4 landscape; margin: 10mm 8mm; }
   }
 `;
