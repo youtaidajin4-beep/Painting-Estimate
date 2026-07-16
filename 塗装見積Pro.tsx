@@ -113,6 +113,10 @@ const REP_SYMS = [
   ["防水層の劣化", "主な原因：防水塗膜の経年劣化です。水切れの悪化や表面のザラつきが生じ、放置すると防水性能の低下や雨漏りにつながるおそれがあります。"],
   ["異常なし", "目立った劣化・損傷は確認されませんでした。現状は良好です。"],
 ];
+function symRefText(sym) {
+  const row = REP_SYMS.find(([s]) => s === sym);
+  return row ? row[1] : "";
+}
 const REP_CAUSES = ["台風・強風（風災）", "雹（雹災）", "大雪（雪災）", "落雷", "飛来物・衝突", "その他"];
 // 劣化度判定（国交省・自治体の劣化診断マニュアル準拠の4段階）
 const REP_GRADES = [
@@ -696,6 +700,10 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
   const [repSymIn, setRepSymIn] = useState("");
   const [repSelectMode, setRepSelectMode] = useState(false);
   const [repSelected, setRepSelected] = useState([]);
+  const [repPhotoAiId, setRepPhotoAiId] = useState(null);
+  const [repPhotoAiBatch, setRepPhotoAiBatch] = useState(null);
+  const [tplSheet, setTplSheet] = useState(null);
+  const [tplEditId, setTplEditId] = useState(null);
   const [pvScale, setPvScale] = useState(1);
   const [pvH, setPvH] = useState(0);
   const pvRef = useRef(null);
@@ -805,7 +813,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
   };
   const addRepPhotoFiles = async (files) => {
     const added = [];
-    for (const f of files) { try { added.push({ id: uid(), data: await readPhoto(f), loc: "外壁", sym: "", text: "", note: "" }); } catch (e) {} }
+    for (const f of files) { try { added.push({ id: uid(), data: await readPhoto(f), loc: "外壁", sym: "", text: "", keywords: "", note: "" }); } catch (e) {} }
     if (added.length) { await saveRepPhotos([...repPhotos, ...added]); flash(added.length + "枚追加しました。箇所と症状をタップしてください"); }
     else flash("写真を読み込めませんでした。スクリーンショット画像でお試しください");
   };
@@ -831,6 +839,69 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       flash("AIが診断結果を作成しました。自由に手直しできます");
     } catch (e) { flash("生成に失敗しました。「写真から自動で下書き」もご利用いただけます"); }
     setRepAiBusy(false);
+  };
+  const generatePhotoTextFor = async (p, existingTexts) => {
+    const ref = symRefText(p.sym);
+    const g = REP_GRADES.find(([G]) => G === p.grade);
+    const gradeTxt = g ? g[0] + "・" + g[1] : "未設定";
+    const avoid = existingTexts.filter(Boolean).slice(0, 5).map((t, i) => (i + 1) + ". " + t.slice(0, 80)).join("\n");
+    const res = await callAI({
+      model: "claude-sonnet-4-6",
+      max_tokens: 450,
+      messages: [{ role: "user", content: "あなたは建物調査報告書の専門家です。以下の1枚の写真に載せる解説文を日本語で書いてください。\n\n【条件】\n・必ず「主な原因：」で始める\n・2〜3文、報告書向けの客観的で丁寧な文体\n・参考知識は内容を理解したうえで言い回しを変え、コピー禁止\n・キーワードや箇所の特徴を反映し、他の写真と同じ文にしない\n・前置き・箇条書き・見出しは不要、本文のみ\n\n箇所：" + (p.loc || "未設定") + "\n症状：" + (p.sym || "") + "\n劣化度：" + gradeTxt + "\nキーワード：" + ((p.keywords || "").trim() || "なし") + (ref ? "\n参考知識：" + ref : "") + (avoid ? "\n\n既に使われている文（繰り返さない）：\n" + avoid : "") }],
+    }, set.apiKey);
+    const data = await res.json();
+    const text = (data.content || []).map((i) => (i.type === "text" ? i.text : "")).join("").trim();
+    if (!text) throw new Error("empty");
+    return text.startsWith("主な原因") ? text : "主な原因：" + text.replace(/^主な原因[：:]\s*/, "");
+  };
+  const genPhotoText = async (photoId, listOverride) => {
+    const list = listOverride || repPhotos;
+    const p = list.find((x) => x.id === photoId);
+    if (!p || !p.sym) return list;
+    setRepPhotoAiId(photoId);
+    try {
+      const existingTexts = list.filter((x) => x.id !== photoId && x.text).map((x) => x.text);
+      const text = await generatePhotoTextFor(p, existingTexts);
+      const next = list.map((x) => (x.id === photoId ? { ...x, text } : x));
+      if (!listOverride) await saveRepPhotos(next);
+      return next;
+    } catch (e) {
+      flash("生成に失敗しました。「定型文で入れる」か手入力もできます");
+      return list;
+    } finally {
+      setRepPhotoAiId(null);
+    }
+  };
+  const batchGenPhotoText = async () => {
+    if (repPhotoAiBatch || repPhotoAiId) return;
+    let list = [...repPhotos];
+    const targets = list.filter((p) => p.sym && !(p.text || "").trim());
+    if (!targets.length) { flash("解説文が未入力の写真がありません"); return; }
+    setRepPhotoAiBatch({ cur: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      setRepPhotoAiBatch({ cur: i + 1, total: targets.length });
+      list = await genPhotoText(targets[i].id, list);
+      setRepPhotos(list);
+    }
+    await saveRepPhotos(list);
+    setRepPhotoAiBatch(null);
+    flash(targets.length + "枚の解説文を一括生成しました");
+  };
+  const openTplSave = (items) => {
+    const drafts = items.filter((s) => (s.text || "").trim()).map((s) => ({ draftId: uid(), title: s.title || "所見", text: s.text }));
+    if (!drafts.length) { flash("保存する文章がありません"); return; }
+    setTplSheet({ mode: "save", step: "form", drafts, savedCount: 0 });
+  };
+  const confirmTplSave = async () => {
+    if (!tplSheet || tplSheet.mode !== "save") return;
+    const existing = set.repSummaryTemplates || [];
+    const dupes = tplSheet.drafts.filter((d) => existing.some((e) => e.title === d.title && e.text === d.text));
+    if (dupes.length && !window.confirm("同じ内容の定型文が既にあります。追加しますか？")) return;
+    const added = tplSheet.drafts.map((d) => ({ id: uid(), title: d.title, text: d.text, savedAt: Date.now() }));
+    await persistSet({ ...set, repSummaryTemplates: [...existing, ...added] });
+    setTplSheet({ ...tplSheet, step: "success", savedCount: added.length });
+    flash("定型文を保存しました（" + added.length + "件）");
   };
   const dupEst = async (e) => {
     const d = new Date();
@@ -1103,6 +1174,18 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
     .hbg { width: 44px; height: 44px; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5.5px; padding: 0; margin-right: 2px; touch-action: manipulation; }
     .hbg span { display: block; width: 22px; height: 2.5px; border-radius: 2px; background: #1D1D1F; }
     .menu-ovl { position: fixed; inset: 0; z-index: 120; background: rgba(0,0,0,.32); animation: fdin .18s ease; }
+    .tpl-sheet-ovl { position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.38); display: flex; align-items: flex-end; justify-content: center; animation: fdin .18s ease; }
+    .tpl-sheet-panel { width: 100%; max-width: 520px; max-height: min(88vh, 720px); background: #fff; border-radius: 18px 18px 0 0; padding: 8px 18px calc(20px + env(safe-area-inset-bottom)); overflow-y: auto; animation: slup .24s cubic-bezier(.32,.72,.35,1); box-shadow: 0 -8px 32px rgba(0,0,0,.12); }
+    @keyframes slup { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .tpl-sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: #D1D1D6; margin: 6px auto 14px; }
+    .tpl-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .tpl-sheet-head h3 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+    .tpl-card { background: #F8F9FA; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; border: 1px solid rgba(0,0,0,.06); }
+    .tpl-card-pick { cursor: pointer; transition: background .12s, border-color .12s; }
+    .tpl-card-pick:active { background: #EEF7F0; border-color: rgba(27,127,59,.25); }
+    .tpl-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; color: ${accentColor}; background: rgba(27,127,59,.1); border-radius: 20px; padding: 4px 10px; }
+    .tpl-success { text-align: center; padding: 28px 12px 16px; }
+    .tpl-success-ic { width: 56px; height: 56px; border-radius: 50%; background: rgba(27,127,59,.12); color: ${accentColor}; font-size: 28px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
     @keyframes fdin { from { opacity: 0; } to { opacity: 1; } }
     .menu-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(78vw, 300px); background: #fff; border-left: 1px solid #DDE1E6; padding: 10px 14px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; animation: slin .22s cubic-bezier(.32,.72,.35,1); }
     @keyframes slin { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -1146,7 +1229,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       html, body, #root, .root { overflow: visible !important; max-width: none !important; min-height: auto !important; }
       ${printPageBase}
       @page { size: A4; margin: 0; }
-      .no-print, .sticky-foot, .appbar, .menu-ovl, .markmodal { display: none !important; }
+      .no-print, .sticky-foot, .appbar, .menu-ovl, .markmodal, .tpl-sheet-ovl { display: none !important; }
       .page-with-foot { padding-bottom: 0 !important; }
       .root { background: #fff !important; padding: 0 !important; }
       .print-area { padding: 0 !important; margin: 0 !important; }
@@ -1999,6 +2082,11 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
               {repPhotos.length > 1 && (
                 <button className="btn btn-bar btn-mini" onClick={() => { const l = [...repPhotos].sort((a, b) => REP_LOCS.indexOf(a.loc) - REP_LOCS.indexOf(b.loc)); saveRepPhotos(l); flash("箇所順に整列しました（番号も揃います）"); }}>箇所順に整列</button>
               )}
+              {repPhotos.some((p) => p.sym && !(p.text || "").trim()) && (
+                <button className="btn btn-soft btn-mini" disabled={!!repPhotoAiBatch || !!repPhotoAiId} onClick={batchGenPhotoText}>
+                  {repPhotoAiBatch ? "一括生成中 " + repPhotoAiBatch.cur + "/" + repPhotoAiBatch.total : "未入力を一括AI生成"}
+                </button>
+              )}
             </div>
           </div>
           {repSelectMode && repPhotos.length > 0 && (
@@ -2055,7 +2143,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span className="sub num" style={{ fontSize: 12 }}>写真 {idx + 1}</span>
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {!repSelectMode && idx > 0 && <button className="btn btn-soft btn-mini" style={{ padding: "4px 8px", fontSize: 11.5 }} onClick={() => { const pv = repPhotos[idx - 1]; updRepPhoto(p.id, { loc: pv.loc, sym: pv.sym, text: pv.text, grade: pv.grade || "" }); flash("前の写真の箇所・症状をコピーしました"); }}>前と同じ</button>}
+                      {!repSelectMode && idx > 0 && <button className="btn btn-soft btn-mini" style={{ padding: "4px 8px", fontSize: 11.5 }} onClick={() => { const pv = repPhotos[idx - 1]; updRepPhoto(p.id, { loc: pv.loc, sym: pv.sym, text: pv.text, keywords: pv.keywords || "", grade: pv.grade || "" }); flash("前の写真の箇所・症状をコピーしました"); }}>前と同じ</button>}
                       {!repSelectMode && (
                         <button className="btn btn-soft btn-mini" style={{ padding: "4px 8px", fontSize: 11.5 }} onClick={async () => {
                           try { const data = await rotatePhotoDataUrl(p.data); updRepPhoto(p.id, { data, marks: [] }); flash("90°回転しました"); }
@@ -2081,17 +2169,34 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-                {REP_SYMS.map(([S, T]) => (
-                  <button key={S} onClick={() => putPhoto(p.id, { sym: S, text: T })}
+                {REP_SYMS.map(([S]) => (
+                  <button key={S} onClick={() => putPhoto(p.id, { sym: S })}
                     style={{ border: "none", borderRadius: 20, padding: "7px 13px", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: p.sym === S ? "#1B7F3B" : "#F2F2F7", color: p.sym === S ? "#fff" : "#1D1D1F" }}>{S}</button>
                 ))}
                 {(r.customSyms || []).map((cs) => (
-                  <button key={cs.id} onClick={() => putPhoto(p.id, { sym: cs.label, text: "" })}
+                  <button key={cs.id} onClick={() => putPhoto(p.id, { sym: cs.label })}
                     style={{ border: "none", borderRadius: 20, padding: "7px 13px", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: p.sym === cs.label ? "#1B7F3B" : "#F2F2F7", color: p.sym === cs.label ? "#fff" : "#1D1D1F" }}>{cs.label}</button>
                 ))}
               </div>
               {r.insurance.on && p.sym && ["コケ・藻", "チョーキング", "シーリング劣化", "黒ずみ・汚れ", "防水層の劣化"].includes(p.sym) && (
                 <p style={{ fontSize: 11.5, color: "#C25E00", background: "#FFF6EB", borderRadius: 8, padding: "7px 10px", margin: "8px 0 0", lineHeight: 1.6 }}>⚠ 「{p.sym}」は経年劣化として保険対象外と判断されることがあります。災害起因の損傷（破損・雨漏り跡・飛来物痕など）と報告書を分けることをおすすめします。</p>
+              )}
+              {p.sym && (
+                <div style={{ marginTop: 10, padding: "12px 14px", background: "#F8F9FA", borderRadius: 12, border: "1px solid rgba(0,0,0,.05)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: "#48484A" }}>解説文の作成</div>
+                  <input value={p.keywords || ""} onChange={(e) => putPhoto(p.id, { keywords: e.target.value })} placeholder="キーワード（例：南面・2階・手に粉が付く）" style={{ marginBottom: 8, fontSize: 13 }} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn btn-ac btn-mini" disabled={!p.sym || repPhotoAiId === p.id || !!repPhotoAiBatch} onClick={() => genPhotoText(p.id)}>
+                      {repPhotoAiId === p.id ? "生成中…" : "AIで解説文を生成"}
+                    </button>
+                    <button className="btn btn-soft btn-mini" disabled={!p.sym} onClick={() => {
+                      const t = symRefText(p.sym);
+                      if (t) putPhoto(p.id, { text: t });
+                      else flash("この症状の定型文がありません。AI生成か手入力してください");
+                    }}>定型文で入れる</button>
+                  </div>
+                  <p className="sub" style={{ fontSize: 11, margin: "8px 0 0" }}>症状を選んだらキーワードを入れてAI生成。同じ症状でも枚ごとに異なる文面になります。</p>
+                </div>
               )}
               <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center" }}>
                 <span className="sub" style={{ fontSize: 12, fontWeight: 600, flexShrink: 0 }}>劣化度</span>
@@ -2101,53 +2206,112 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                 ))}
               </div>
               {(p.sym || p.text) && (
-                <textarea rows={3} value={p.text} onChange={(e) => putPhoto(p.id, { text: e.target.value })} style={{ marginTop: 10, fontSize: 13 }} placeholder="解説文（症状をタップすると自動で入ります）" />
+                <textarea rows={3} value={p.text || ""} onChange={(e) => putPhoto(p.id, { text: e.target.value })} style={{ marginTop: 10, fontSize: 13 }} placeholder="解説文（AI生成または手入力）" />
               )}
             </div>
           ))}
           <PhotoAdd onFiles={addRepPhotoFiles} label="＋ 写真を追加（カメラ / アルバム・複数可）" />
 
-          <div className="eyebrow" style={{ margin: "20px 4px 8px" }}>3. 診断結果（総評）</div>
+          <div className="eyebrow" style={{ margin: "20px 4px 8px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span>3. 診断結果（総評）</span>
+            {(set.repSummaryTemplates || []).length > 0 && <span className="tpl-badge">定型文 {(set.repSummaryTemplates || []).length}件</span>}
+          </div>
           <div className="card" style={{ padding: 16 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
               <button className="btn btn-ac btn-mini" disabled={repPhotos.length === 0} onClick={() => { put({ summaries: buildRepSummary(repPhotos) }); flash("写真の症状から下書きを作成しました"); }}>写真から自動で下書き</button>
               <button className="btn btn-soft btn-mini" disabled={repAiBusy || repPhotos.length === 0} onClick={genRepAI}>{repAiBusy ? "作成中…" : "AIで文章作成"}</button>
-              <button className="btn btn-soft btn-mini" disabled={!(r.summaries || []).length} onClick={() => {
-                const added = (r.summaries || []).filter((s2) => s2.text.trim()).map((s2) => ({ id: uid(), title: s2.title || "所見", text: s2.text }));
-                if (!added.length) { flash("保存する文章がありません"); return; }
-                persistSet({ ...set, repSummaryTemplates: [...(set.repSummaryTemplates || []), ...added] });
-                flash("現在の内容を定型文として保存しました（" + added.length + "件）");
-              }}>現在の内容を定型文として保存</button>
+              <button className="btn btn-soft btn-mini" onClick={() => setTplSheet({ mode: "insert", step: "list", pick: null })}>定型文を使う</button>
+              <button className="btn btn-soft btn-mini" disabled={!(r.summaries || []).some((s2) => (s2.text || "").trim())} onClick={() => openTplSave(r.summaries || [])}>定型文として保存</button>
             </div>
-            {(set.repSummaryTemplates || []).length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <p className="sub" style={{ fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>定型文から挿入</p>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {(set.repSummaryTemplates || []).map((tpl) => (
-                    <button key={tpl.id} className="btn btn-soft btn-mini" onClick={() => { put({ summaries: [...(r.summaries || []), { id: uid(), title: tpl.title, text: tpl.text }] }); flash("定型文を挿入しました"); }}>{tpl.title}</button>
-                  ))}
-                </div>
-              </div>
-            )}
             {(r.summaries || []).map((s2) => (
-              <div key={s2.id} style={{ marginBottom: 12 }}>
-                <input value={s2.title} onChange={(e) => put({ summaries: r.summaries.map((x) => (x.id === s2.id ? { ...x, title: e.target.value } : x)) })} style={{ fontWeight: 700, marginBottom: 6 }} />
-                <textarea rows={3} value={s2.text} onChange={(e) => put({ summaries: r.summaries.map((x) => (x.id === s2.id ? { ...x, text: e.target.value } : x)) })} style={{ fontSize: 13 }} />
-                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+              <div key={s2.id} style={{ marginBottom: 12, padding: "12px 14px", background: "#FAFAFA", borderRadius: 12, border: "1px solid rgba(0,0,0,.05)" }}>
+                <input value={s2.title} onChange={(e) => put({ summaries: r.summaries.map((x) => (x.id === s2.id ? { ...x, title: e.target.value } : x)) })} style={{ fontWeight: 700, marginBottom: 6, background: "#fff" }} />
+                <textarea rows={3} value={s2.text} onChange={(e) => put({ summaries: r.summaries.map((x) => (x.id === s2.id ? { ...x, text: e.target.value } : x)) })} style={{ fontSize: 13, background: "#fff" }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                   <button className="btn btn-bar btn-mini" style={{ color: "#FF3B30" }} onClick={() => put({ summaries: r.summaries.filter((x) => x.id !== s2.id) })}>この項目を削除</button>
-                  {s2.text.trim() && (
-                    <button className="btn btn-soft btn-mini" onClick={() => {
-                      persistSet({ ...set, repSummaryTemplates: [...(set.repSummaryTemplates || []), { id: uid(), title: s2.title || "所見", text: s2.text }] });
-                      flash("この項目を定型文として保存しました");
-                    }}>この項目を定型文として保存</button>
+                  {(s2.text || "").trim() && (
+                    <button className="btn btn-soft btn-mini" onClick={() => openTplSave([s2])}>定型文として保存</button>
                   )}
                 </div>
               </div>
             ))}
             <button className="btn btn-soft btn-mini" onClick={() => put({ summaries: [...(r.summaries || []), { id: uid(), title: "外壁", text: "" }] })}>＋ 項目を追加</button>
-            <p className="sub" style={{ fontSize: 11.5, margin: "10px 0 0" }}>「自動で下書き」は写真につけた箇所・症状から所見をまとめます。文章は自由に手直しできます。</p>
+            <p className="sub" style={{ fontSize: 11.5, margin: "10px 0 0" }}>写真の解説文はAIで枚ごとに作成できます。総評は「自動で下書き」「定型文」「AI」で効率よく作れます。</p>
           </div>
         </div>
+        {tplSheet && (
+          <div className="tpl-sheet-ovl no-print" onClick={(e) => { if (e.target === e.currentTarget && tplSheet.step !== "success") setTplSheet(null); }}>
+            <div className="tpl-sheet-panel" onClick={(e) => e.stopPropagation()}>
+              <div className="tpl-sheet-handle" />
+              {tplSheet.mode === "save" && tplSheet.step === "form" && (
+                <>
+                  <div className="tpl-sheet-head">
+                    <h3>定型文を保存</h3>
+                    <button className="menu-x" onClick={() => setTplSheet(null)}>✕</button>
+                  </div>
+                  <p className="sub" style={{ fontSize: 13, margin: "0 0 12px" }}><span className="tpl-badge">{tplSheet.drafts.length}件を保存します</span></p>
+                  {tplSheet.drafts.map((d, i) => (
+                    <div key={d.draftId} className="tpl-card">
+                      <input value={d.title} onChange={(e) => setTplSheet({ ...tplSheet, drafts: tplSheet.drafts.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)) })} placeholder="タイトル（例：外壁）" style={{ fontWeight: 700, marginBottom: 8 }} />
+                      <p className="sub" style={{ fontSize: 12.5, margin: "0 0 8px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{d.text.length > 120 ? d.text.slice(0, 120) + "…" : d.text}</p>
+                    </div>
+                  ))}
+                  <button className="btn btn-ac" style={{ width: "100%", marginTop: 8 }} onClick={confirmTplSave}>保存する</button>
+                </>
+              )}
+              {tplSheet.mode === "save" && tplSheet.step === "success" && (
+                <div className="tpl-success">
+                  <div className="tpl-success-ic">✓</div>
+                  <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 800 }}>保存しました</h3>
+                  <p className="sub" style={{ fontSize: 14, margin: "0 0 20px" }}>定型文を{tplSheet.savedCount}件登録しました。次回から「定型文を使う」で呼び出せます。</p>
+                  <button className="btn btn-ac" style={{ width: "100%", marginBottom: 8 }} onClick={() => setTplSheet({ mode: "insert", step: "list", pick: null })}>定型文一覧を見る</button>
+                  <button className="btn btn-soft" style={{ width: "100%" }} onClick={() => setTplSheet(null)}>閉じる</button>
+                </div>
+              )}
+              {tplSheet.mode === "insert" && tplSheet.step === "list" && (
+                <>
+                  <div className="tpl-sheet-head">
+                    <h3>定型文を使う</h3>
+                    <button className="menu-x" onClick={() => setTplSheet(null)}>✕</button>
+                  </div>
+                  {(set.repSummaryTemplates || []).length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "24px 8px" }}>
+                      <div style={{ fontSize: 40, marginBottom: 12, opacity: .35 }}>📝</div>
+                      <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px" }}>定型文がまだありません</p>
+                      <p className="sub" style={{ fontSize: 13, margin: "0 0 16px", lineHeight: 1.6 }}>診断結果を書いたら「定型文として保存」で登録できます。</p>
+                      <button className="btn btn-ac btn-mini" disabled={!(r.summaries || []).some((s2) => (s2.text || "").trim())} onClick={() => openTplSave(r.summaries || [])}>今の内容から保存</button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="sub" style={{ fontSize: 13, margin: "0 0 12px" }}>使いたい定型文を選んでください</p>
+                      {(set.repSummaryTemplates || []).map((tpl) => (
+                        <div key={tpl.id} className="tpl-card tpl-card-pick" onClick={() => setTplSheet({ mode: "insert", step: "confirm", pick: tpl })}>
+                          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{tpl.title}</div>
+                          <p className="sub" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{tpl.text.length > 100 ? tpl.text.slice(0, 100) + "…" : tpl.text}</p>
+                          {tpl.savedAt && <p className="sub num" style={{ fontSize: 11, margin: "6px 0 0" }}>{new Date(tpl.savedAt).toLocaleDateString("ja-JP")} 保存</p>}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+              {tplSheet.mode === "insert" && tplSheet.step === "confirm" && tplSheet.pick && (
+                <>
+                  <div className="tpl-sheet-head">
+                    <h3>挿入方法を選ぶ</h3>
+                    <button className="menu-x" onClick={() => setTplSheet({ mode: "insert", step: "list", pick: null })}>✕</button>
+                  </div>
+                  <div className="tpl-card">
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{tplSheet.pick.title}</div>
+                    <p className="sub" style={{ fontSize: 13, margin: 0, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{tplSheet.pick.text}</p>
+                  </div>
+                  <button className="btn btn-ac" style={{ width: "100%", marginBottom: 8 }} onClick={() => { put({ summaries: [...(r.summaries || []), { id: uid(), title: tplSheet.pick.title, text: tplSheet.pick.text }] }); setTplSheet(null); flash("定型文を追加しました"); }}>診断結果に追加する</button>
+                  <button className="btn btn-soft" style={{ width: "100%" }} onClick={() => { if (!window.confirm("現在の診断結果をすべて置き換えますか？")) return; put({ summaries: [{ id: uid(), title: tplSheet.pick.title, text: tplSheet.pick.text }] }); setTplSheet(null); flash("診断結果を置き換えました"); }}>すべて置き換える</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         {markEdit && (() => {
           const p = repPhotos.find((x) => x.id === markEdit);
           if (!p) return null;
@@ -3195,16 +3359,38 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             </div>
           </div>
 
-          <div className="eyebrow" style={{ margin: "0 4px 8px" }}>報告書 診断結果の定型文</div>
+          <div className="eyebrow" style={{ margin: "0 4px 8px" }}>報告書 診断結果の定型文 <span className="sub" style={{ fontWeight: 500 }}>（登録済み {(set.repSummaryTemplates || []).length}件）</span></div>
           <div className="card" style={{ padding: 16, marginBottom: 18 }}>
             {(set.repSummaryTemplates || []).length === 0 ? (
               <p className="sub" style={{ fontSize: 13, margin: 0 }}>定型文は調査報告書の「診断結果」欄から保存できます。よく使う所見文を登録しておくと、次回からワンタップで挿入できます。</p>
             ) : (
               (set.repSummaryTemplates || []).map((tpl) => (
-                <div key={tpl.id} style={{ padding: "10px 0", borderBottom: ".5px solid rgba(0,0,0,.08)" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{tpl.title}</div>
-                  <p className="sub" style={{ fontSize: 12.5, margin: "0 0 8px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{tpl.text.length > 80 ? tpl.text.slice(0, 80) + "…" : tpl.text}</p>
-                  <button className="btn btn-bar btn-mini" style={{ color: "#FF3B30" }} onClick={() => persistSet({ ...set, repSummaryTemplates: (set.repSummaryTemplates || []).filter((x) => x.id !== tpl.id) })}>削除</button>
+                <div key={tpl.id} className="tpl-card" style={{ marginBottom: 12 }}>
+                  {tplEditId === tpl.id ? (
+                    <>
+                      <input value={tpl.title} onChange={(e) => persistSet({ ...set, repSummaryTemplates: (set.repSummaryTemplates || []).map((x) => (x.id === tpl.id ? { ...x, title: e.target.value } : x)) })} style={{ fontWeight: 700, marginBottom: 8 }} />
+                      <textarea rows={4} value={tpl.text} onChange={(e) => persistSet({ ...set, repSummaryTemplates: (set.repSummaryTemplates || []).map((x) => (x.id === tpl.id ? { ...x, text: e.target.value } : x)) })} style={{ fontSize: 13, marginBottom: 8 }} />
+                      <button className="btn btn-ac btn-mini" onClick={() => { setTplEditId(null); flash("定型文を更新しました"); }}>保存</button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>{tpl.title}</div>
+                        <span className="sub num" style={{ fontSize: 11, flexShrink: 0 }}>{(tpl.text || "").length}字</span>
+                      </div>
+                      <p className="sub" style={{ fontSize: 12.5, margin: "0 0 10px", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{tpl.text}</p>
+                      {tpl.savedAt && <p className="sub num" style={{ fontSize: 11, margin: "0 0 8px" }}>{new Date(tpl.savedAt).toLocaleDateString("ja-JP")} 保存</p>}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="btn btn-soft btn-mini" onClick={() => setTplEditId(tpl.id)}>編集</button>
+                        <button className="btn btn-bar btn-mini" style={{ color: "#FF3B30" }} onClick={() => {
+                          if (!window.confirm("「" + tpl.title + "」を削除しますか？")) return;
+                          persistSet({ ...set, repSummaryTemplates: (set.repSummaryTemplates || []).filter((x) => x.id !== tpl.id) });
+                          if (tplEditId === tpl.id) setTplEditId(null);
+                          flash("定型文を削除しました");
+                        }}>削除</button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))
             )}
