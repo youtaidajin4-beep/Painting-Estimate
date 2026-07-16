@@ -98,7 +98,7 @@ const GSTEPS = {
 };
 
 // ---- 調査報告書：箇所と症状別の原因解説テンプレート（タップで自動挿入・編集可） ----
-const REP_LOCS = ["外壁", "屋根", "屋上", "シーリング", "階段", "庇", "雨樋", "基礎", "ベランダ", "内部", "その他"];
+const REP_LOCS = ["外壁", "屋根", "屋上", "破風", "軒天", "庇", "雨樋", "木部", "鉄部", "シーリング", "階段", "基礎", "ベランダ", "内部", "その他"];
 const REP_SYMS = [
   ["コケ・藻", "主な原因：湿気や汚れ、日陰の多い環境です。直射日光が当たらない場所や風通しの悪い場所で特に発生しやすく、外壁の素材によっては繁殖が進みやすくなります。発生を防ぐためには、定期的な清掃や防藻・防カビ機能がある塗料の使用が有効です。"],
   ["ひび割れ（クラック）", "主な原因：乾燥収縮や振動、経年による塗膜・下地の劣化です。放置すると雨水が浸入し、下地の腐食や雨漏りにつながるおそれがあるため、早めの補修をお勧めします。"],
@@ -131,6 +131,7 @@ function newReport() {
     name: "", customer: "", site: "", base: "", spec: "屋根・外壁・下地処理",
     age: "", inspector: "", methods: ["目視"], plan: "", planMarks: [], layout: "所見", orient: "横",
     summaries: [],
+    customSyms: [],
     insurance: { on: false, eventDate: "", cause: REP_CAUSES[0] },
     cover: "", count: 0, updatedAt: Date.now(),
   };
@@ -177,7 +178,7 @@ const HELP_FAQ = [
   { c: "調査報告書", q: "図面に撮影位置を入れたい", kw: ["図面", "配置図", "マーカー", "位置"], a: "報告書編集の「図面」欄に配置図・立面図の写真をアップし、図面をタップすると①②③…の番号マーカーが付きます。写真の箇所グループの順にタップしてください。報告書に撮影位置図のページが自動で入ります。" },
   { c: "調査報告書", q: "保険モードの注意点", kw: ["保険", "火災", "風災"], a: "保険モードをONにすると被災日・想定原因の欄と撮影日の自動記載が有効になります。重要：コケやチョーキングなど経年劣化の症状は保険対象外と判断されがちです。災害起因の損傷（破損・雨漏り跡など）と報告書を分けるのがおすすめで、該当症状を選ぶと注意が表示されます。" },
   { c: "調査報告書", q: "報告書から見積をつくれる？", kw: ["見積にする", "変換"], a: "報告書カードの「見積にする」で、症状が診断項目に自動でひも付いた見積の下書きができます（コケ→バイオ洗浄、ひび割れ→クラック補修など）。写真も引き継がれ、建物サイズを入れるだけで完成します。" },
-  { c: "写真", q: "写真が追加できない", kw: ["写真", "追加できない", "読み込", "エラー"], a: "一部の特殊な形式（HEICの設定など）で読み込めないことがあります。その場合は、写真を一度スクリーンショットして、そのスクショを選ぶと確実に追加できます。写真は1報告書につき30枚までです。" },
+  { c: "写真", q: "写真が追加できない", kw: ["写真", "追加できない", "読み込", "エラー", "HEIC"], a: "iPhoneのHEIC形式にも対応しています。そのまま追加できるはずですが、読み込めない場合は写真を一度スクリーンショットして、そのスクショを選ぶと確実に追加できます。写真は1報告書につき30枚までです。" },
   { c: "データ", q: "バックアップのやり方", kw: ["バックアップ", "引き継ぎ", "移行"], a: "右上メニュー（≡）→「会社情報」→一番下の「データの引き継ぎ」で「書き出してコピー」を押すとテキストがコピーされます。メモアプリ等に貼って保管してください。復元は同じ欄に貼り付けて「取り込む」。案件・単価・写真・報告書がすべて入っています。作業の区切りごとの書き出しをおすすめします。" },
   { c: "データ", q: "データが消えた・見えない", kw: ["消えた", "なくなった", "初期化"], a: "アプリが新しい画面に更新されると、以前のデータが引き継がれないことがあります。バックアップのテキストがあれば「取り込む」で全復元できます。まずは慌てずバックアップの有無を確認してください。" },
   { c: "統計・経営", q: "トップの数字とグラフの見方", kw: ["統計", "グラフ", "受注率", "粗利"], a: "黒いカードは選択中の月の「提出中・受注率・受注粗利」です。‹›か下の棒グラフをタップで月を移動できます。案件カードの左端の色帯は粗利率の健康状態（緑=健全／橙=注意／赤=警告ライン割れ。警告ラインは経営設定の粗利警告％と連動）です。" },
@@ -194,6 +195,7 @@ const DEFAULT_SET = {
   seal: "", logo: "",
   coName: "", coAddr: "", coRep: "", coTel: "", coMail: "",
   apiKey: "",
+  repSummaryTemplates: [],
 };
 
 // 劣化症状 → 自動提案
@@ -318,13 +320,18 @@ function Field({ label, children, hint }) {
 
 // ---- 現場写真（自動圧縮して保存） ----
 const PHOTO_TAGS = ["全景", "外壁", "屋根", "ひび割れ", "シーリング", "コケ・藻", "付帯部", "シミュレーション", "その他"];
-function fileToDataURL(file) {
+function blobToDataURL(blob) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(r.result);
     r.onerror = () => rej(new Error("read failed"));
-    r.readAsDataURL(file);
+    r.readAsDataURL(blob);
   });
+}
+function fileToDataURL(file) { return blobToDataURL(file); }
+function isHeicFile(file) {
+  const n = (file.name || "").toLowerCase();
+  return n.endsWith(".heic") || n.endsWith(".heif") || file.type === "image/heic" || file.type === "image/heif";
 }
 function scaleImage(dataUrl, max, mime, q) {
   return new Promise((res, rej) => {
@@ -347,7 +354,32 @@ async function readSeal(file) {
   return scaleImage(await fileToDataURL(file), 360, "image/png");
 }
 async function readPhoto(file) {
-  return scaleImage(await fileToDataURL(file), 900, "image/jpeg", 0.72);
+  let blob = file;
+  if (isHeicFile(file)) {
+    const { default: heic2any } = await import("heic2any");
+    const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    blob = Array.isArray(converted) ? converted[0] : converted;
+  }
+  return scaleImage(await fileToDataURL(blob), 900, "image/jpeg", 0.72);
+}
+async function rotatePhotoDataUrl(dataUrl) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const cv = document.createElement("canvas");
+        cv.width = img.height;
+        cv.height = img.width;
+        const ctx = cv.getContext("2d");
+        ctx.translate(cv.width / 2, cv.height / 2);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        res(cv.toDataURL("image/jpeg", 0.72));
+      } catch (e) { rej(e); }
+    };
+    img.onerror = () => rej(new Error("rotate failed"));
+    img.src = dataUrl;
+  });
 }
 const PhotoGrid = ({ photos, onTag, onDel }) => photos.length === 0 ? null : (
   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
@@ -392,7 +424,7 @@ const Ed = ({ v, on, num, multi, style }) => (
 const PhotoAdd = ({ onFiles, label }) => (
   <label className="btn btn-soft" style={{ display: "block", textAlign: "center", cursor: "pointer" }}>
     {label}
-    <input type="file" accept="image/*" multiple style={{ display: "none" }}
+    <input type="file" accept="image/*,.heic,.heif" multiple style={{ display: "none" }}
       onChange={(e) => { const fs = Array.from(e.target.files || []); e.target.value = ""; if (fs.length) onFiles(fs); }} />
   </label>
 );
@@ -661,6 +693,9 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
   const [repDelId, setRepDelId] = useState(null);
   const [markEdit, setMarkEdit] = useState(null);
   const [markSize, setMarkSize] = useState(16);
+  const [repSymIn, setRepSymIn] = useState("");
+  const [repSelectMode, setRepSelectMode] = useState(false);
+  const [repSelected, setRepSelected] = useState([]);
   const [pvScale, setPvScale] = useState(1);
   const [pvH, setPvH] = useState(0);
   const pvRef = useRef(null);
@@ -684,7 +719,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       setEsts(await load(K_EST, []));
       setReps(await load("paint-rep-v1", []));
       const s = await load(K_SET, {});
-      const s2 = { ...DEFAULT_SET, ...s, catalogs: { ...CATALOGS, ...(s.catalogs || {}) }, customTypes: s.customTypes || [] };
+      const s2 = { ...DEFAULT_SET, ...s, catalogs: { ...CATALOGS, ...(s.catalogs || {}) }, customTypes: s.customTypes || [], repSummaryTemplates: s.repSummaryTemplates || [] };
       if (!s2.coName && s2.company) {
         const ls = s2.company.split("\n").map((x) => x.trim()).filter(Boolean);
         s2.coName = ls[0] || "";
@@ -860,7 +895,7 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
       if (!d || !Array.isArray(d.ests)) throw new Error("bad");
       await save(K_EST, d.ests); setEsts(d.ests);
       if (d.set) {
-        const s = { ...DEFAULT_SET, ...d.set, catalogs: { ...CATALOGS, ...(d.set.catalogs || {}) } };
+        const s = { ...DEFAULT_SET, ...d.set, catalogs: { ...CATALOGS, ...(d.set.catalogs || {}) }, repSummaryTemplates: d.set.repSummaryTemplates || [] };
         await save(K_SET, s); setSet(s);
       }
       if (d.photos) { for (const id of Object.keys(d.photos)) { try { await window.storage.set("paint-photos-" + id, JSON.stringify(d.photos[id])); } catch (er) {} } }
@@ -1955,28 +1990,85 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 4px 8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 4px 8px", flexWrap: "wrap", gap: 8 }}>
             <div className="eyebrow" style={{ margin: 0 }}>2. 現場写真 <span style={{ color: "#8A929B" }}>（{repPhotos.length}枚）</span></div>
-            {repPhotos.length > 1 && (
-              <button className="btn btn-bar btn-mini" onClick={() => { const l = [...repPhotos].sort((a, b) => REP_LOCS.indexOf(a.loc) - REP_LOCS.indexOf(b.loc)); saveRepPhotos(l); flash("箇所順に整列しました（番号も揃います）"); }}>箇所順に整列</button>
-            )}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {repPhotos.length > 0 && (
+                <button className="btn btn-bar btn-mini" onClick={() => { setRepSelectMode(!repSelectMode); setRepSelected([]); }}>{repSelectMode ? "選択終了" : "選択して削除"}</button>
+              )}
+              {repPhotos.length > 1 && (
+                <button className="btn btn-bar btn-mini" onClick={() => { const l = [...repPhotos].sort((a, b) => REP_LOCS.indexOf(a.loc) - REP_LOCS.indexOf(b.loc)); saveRepPhotos(l); flash("箇所順に整列しました（番号も揃います）"); }}>箇所順に整列</button>
+              )}
+            </div>
+          </div>
+          {repSelectMode && repPhotos.length > 0 && (
+            <div className="card" style={{ padding: "10px 12px", marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <button className="btn btn-soft btn-mini" onClick={() => setRepSelected(repPhotos.map((x) => x.id))}>すべて選択</button>
+              <button className="btn btn-soft btn-mini" disabled={!repSelected.length} onClick={() => {
+                if (!window.confirm("選択した" + repSelected.length + "枚の写真を削除しますか？")) return;
+                saveRepPhotos(repPhotos.filter((x) => !repSelected.includes(x.id)));
+                setRepSelected([]); setRepSelectMode(false); flash("選択した写真を削除しました");
+              }}>選択を削除（{repSelected.length}枚）</button>
+              <button className="btn btn-soft btn-mini" style={{ color: "#FF3B30" }} onClick={() => {
+                if (!window.confirm("すべての写真（" + repPhotos.length + "枚）を削除しますか？")) return;
+                saveRepPhotos([]); setRepSelected([]); setRepSelectMode(false); flash("すべての写真を削除しました");
+              }}>すべて削除</button>
+            </div>
+          )}
+          {(r.customSyms || []).length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "0 4px 10px", alignItems: "center" }}>
+              <span className="sub" style={{ fontSize: 12, fontWeight: 600 }}>カスタム症状</span>
+              {(r.customSyms || []).map((cs) => (
+                <span key={cs.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#F2F2F7", borderRadius: 20, padding: "4px 10px", fontSize: 12, fontWeight: 600 }}>
+                  {cs.label}
+                  <button onClick={() => put({ customSyms: (r.customSyms || []).filter((x) => x.id !== cs.id) })} style={{ border: "none", background: "none", color: "#FF3B30", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, margin: "0 4px 12px" }}>
+            <input value={repSymIn} onChange={(e) => setRepSymIn(e.target.value)} placeholder="その他の症状を追加（例：雨漏り跡）" style={{ flex: 1 }} />
+            <button className="btn btn-soft btn-mini" style={{ flexShrink: 0 }} disabled={!repSymIn.trim()}
+              onClick={() => {
+                const label = repSymIn.trim();
+                if (REP_SYMS.some(([s]) => s === label) || (r.customSyms || []).some((x) => x.label === label)) { flash("既に登録されている症状です"); return; }
+                put({ customSyms: [...(r.customSyms || []), { id: uid(), label }] });
+                setRepSymIn(""); flash("カスタム症状を追加しました");
+              }}>追加</button>
           </div>
           {repPhotos.map((p, idx) => (
-            <div key={p.id} className="card" style={{ padding: 14, marginBottom: 12 }}>
+            <div key={p.id} className="card" style={{ padding: 14, marginBottom: 12, outline: repSelectMode && repSelected.includes(p.id) ? "2px solid #1B7F3B" : "none" }}>
               <div style={{ display: "flex", gap: 12 }} className="rep-photo-row">
-                <div className="rep-thumb" style={{ position: "relative", width: 108, height: 108, flexShrink: 0, cursor: "zoom-in" }} onClick={() => { setMarkEdit(p.id); setMarkSize(16); }}>
+                <div className="rep-thumb" style={{ position: "relative", width: 108, height: 108, flexShrink: 0, cursor: repSelectMode ? "pointer" : "zoom-in" }}
+                  onClick={() => {
+                    if (repSelectMode) setRepSelected((sel) => sel.includes(p.id) ? sel.filter((x) => x !== p.id) : [...sel, p.id]);
+                    else { setMarkEdit(p.id); setMarkSize(16); }
+                  }}>
                   <img src={p.data} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12, display: "block" }} />
+                  {repSelectMode && (
+                    <span style={{ position: "absolute", top: 6, left: 6, width: 22, height: 22, borderRadius: 6, background: repSelected.includes(p.id) ? "#1B7F3B" : "rgba(255,255,255,.9)", border: "2px solid #1B7F3B", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 800 }}>{repSelected.includes(p.id) ? "✓" : ""}</span>
+                  )}
                   {(p.marks || []).map((m, mi) => <span key={mi} className="mark" style={{ left: m.x + "%", top: m.y + "%", width: (m.s || 16) + "%" }} />)}
                   {(p.marks || []).length > 0 && <span style={{ position: "absolute", right: 4, bottom: 4, background: "#FF3B30", color: "#fff", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontWeight: 800 }} className="num">○{(p.marks || []).length}</span>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span className="sub num" style={{ fontSize: 12 }}>写真 {idx + 1}</span>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {idx > 0 && <button className="btn btn-soft btn-mini" style={{ padding: "4px 8px", fontSize: 11.5 }} onClick={() => { const pv = repPhotos[idx - 1]; updRepPhoto(p.id, { loc: pv.loc, sym: pv.sym, text: pv.text, grade: pv.grade || "" }); flash("前の写真の箇所・症状をコピーしました"); }}>前と同じ</button>}
-                      <button className="btn btn-soft btn-mini" style={{ padding: "4px 10px" }} disabled={idx === 0} onClick={() => { const l = [...repPhotos]; [l[idx - 1], l[idx]] = [l[idx], l[idx - 1]]; saveRepPhotos(l); }}>↑</button>
-                      <button className="btn btn-soft btn-mini" style={{ padding: "4px 10px" }} disabled={idx === repPhotos.length - 1} onClick={() => { const l = [...repPhotos]; [l[idx + 1], l[idx]] = [l[idx], l[idx + 1]]; saveRepPhotos(l); }}>↓</button>
-                      <button className="btn btn-soft btn-mini" style={{ color: "#FF3B30", padding: "4px 10px" }} onClick={() => saveRepPhotos(repPhotos.filter((x) => x.id !== p.id))}>✕</button>
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      {!repSelectMode && idx > 0 && <button className="btn btn-soft btn-mini" style={{ padding: "4px 8px", fontSize: 11.5 }} onClick={() => { const pv = repPhotos[idx - 1]; updRepPhoto(p.id, { loc: pv.loc, sym: pv.sym, text: pv.text, grade: pv.grade || "" }); flash("前の写真の箇所・症状をコピーしました"); }}>前と同じ</button>}
+                      {!repSelectMode && (
+                        <button className="btn btn-soft btn-mini" style={{ padding: "4px 8px", fontSize: 11.5 }} onClick={async () => {
+                          try { const data = await rotatePhotoDataUrl(p.data); updRepPhoto(p.id, { data, marks: [] }); flash("90°回転しました"); }
+                          catch { flash("回転に失敗しました"); }
+                        }}>↻ 回転</button>
+                      )}
+                      {!repSelectMode && (
+                        <>
+                          <button className="btn btn-soft btn-mini" style={{ padding: "4px 10px" }} disabled={idx === 0} onClick={() => { const l = [...repPhotos]; [l[idx - 1], l[idx]] = [l[idx], l[idx - 1]]; saveRepPhotos(l); }}>↑</button>
+                          <button className="btn btn-soft btn-mini" style={{ padding: "4px 10px" }} disabled={idx === repPhotos.length - 1} onClick={() => { const l = [...repPhotos]; [l[idx + 1], l[idx]] = [l[idx], l[idx + 1]]; saveRepPhotos(l); }}>↓</button>
+                          <button className="btn btn-soft btn-mini" style={{ color: "#FF3B30", padding: "4px 10px" }} onClick={() => saveRepPhotos(repPhotos.filter((x) => x.id !== p.id))}>✕</button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <p className="sub" style={{ fontSize: 11, margin: "4px 0 0" }}>写真をタップすると拡大して、正確な位置に赤丸を付けられます</p>
@@ -1992,6 +2084,10 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                 {REP_SYMS.map(([S, T]) => (
                   <button key={S} onClick={() => putPhoto(p.id, { sym: S, text: T })}
                     style={{ border: "none", borderRadius: 20, padding: "7px 13px", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: p.sym === S ? "#1B7F3B" : "#F2F2F7", color: p.sym === S ? "#fff" : "#1D1D1F" }}>{S}</button>
+                ))}
+                {(r.customSyms || []).map((cs) => (
+                  <button key={cs.id} onClick={() => putPhoto(p.id, { sym: cs.label, text: "" })}
+                    style={{ border: "none", borderRadius: 20, padding: "7px 13px", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: p.sym === cs.label ? "#1B7F3B" : "#F2F2F7", color: p.sym === cs.label ? "#fff" : "#1D1D1F" }}>{cs.label}</button>
                 ))}
               </div>
               {r.insurance.on && p.sym && ["コケ・藻", "チョーキング", "シーリング劣化", "黒ずみ・汚れ", "防水層の劣化"].includes(p.sym) && (
@@ -2013,15 +2109,39 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
 
           <div className="eyebrow" style={{ margin: "20px 4px 8px" }}>3. 診断結果（総評）</div>
           <div className="card" style={{ padding: 16 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
               <button className="btn btn-ac btn-mini" disabled={repPhotos.length === 0} onClick={() => { put({ summaries: buildRepSummary(repPhotos) }); flash("写真の症状から下書きを作成しました"); }}>写真から自動で下書き</button>
               <button className="btn btn-soft btn-mini" disabled={repAiBusy || repPhotos.length === 0} onClick={genRepAI}>{repAiBusy ? "作成中…" : "AIで文章作成"}</button>
+              <button className="btn btn-soft btn-mini" disabled={!(r.summaries || []).length} onClick={() => {
+                const added = (r.summaries || []).filter((s2) => s2.text.trim()).map((s2) => ({ id: uid(), title: s2.title || "所見", text: s2.text }));
+                if (!added.length) { flash("保存する文章がありません"); return; }
+                persistSet({ ...set, repSummaryTemplates: [...(set.repSummaryTemplates || []), ...added] });
+                flash("現在の内容を定型文として保存しました（" + added.length + "件）");
+              }}>現在の内容を定型文として保存</button>
             </div>
+            {(set.repSummaryTemplates || []).length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <p className="sub" style={{ fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>定型文から挿入</p>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {(set.repSummaryTemplates || []).map((tpl) => (
+                    <button key={tpl.id} className="btn btn-soft btn-mini" onClick={() => { put({ summaries: [...(r.summaries || []), { id: uid(), title: tpl.title, text: tpl.text }] }); flash("定型文を挿入しました"); }}>{tpl.title}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             {(r.summaries || []).map((s2) => (
               <div key={s2.id} style={{ marginBottom: 12 }}>
                 <input value={s2.title} onChange={(e) => put({ summaries: r.summaries.map((x) => (x.id === s2.id ? { ...x, title: e.target.value } : x)) })} style={{ fontWeight: 700, marginBottom: 6 }} />
                 <textarea rows={3} value={s2.text} onChange={(e) => put({ summaries: r.summaries.map((x) => (x.id === s2.id ? { ...x, text: e.target.value } : x)) })} style={{ fontSize: 13 }} />
-                <button className="btn btn-bar btn-mini" style={{ color: "#FF3B30" }} onClick={() => put({ summaries: r.summaries.filter((x) => x.id !== s2.id) })}>この項目を削除</button>
+                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                  <button className="btn btn-bar btn-mini" style={{ color: "#FF3B30" }} onClick={() => put({ summaries: r.summaries.filter((x) => x.id !== s2.id) })}>この項目を削除</button>
+                  {s2.text.trim() && (
+                    <button className="btn btn-soft btn-mini" onClick={() => {
+                      persistSet({ ...set, repSummaryTemplates: [...(set.repSummaryTemplates || []), { id: uid(), title: s2.title || "所見", text: s2.text }] });
+                      flash("この項目を定型文として保存しました");
+                    }}>この項目を定型文として保存</button>
+                  )}
+                </div>
               </div>
             ))}
             <button className="btn btn-soft btn-mini" onClick={() => put({ summaries: [...(r.summaries || []), { id: uid(), title: "外壁", text: "" }] })}>＋ 項目を追加</button>
@@ -2036,7 +2156,13 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
             <div className="markmodal no-print" style={{ position: "fixed", inset: 0, background: "rgba(8,8,10,.94)", zIndex: 60, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", color: "#fff" }}>
                 <span style={{ fontSize: 14, fontWeight: 700 }}>タップで赤丸を追加<span style={{ opacity: .6, fontWeight: 500, fontSize: 12 }}>（{ms.length}個）</span></span>
-                <button className="btn btn-ac btn-mini" onClick={() => setMarkEdit(null)}>完了</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-soft btn-mini" onClick={async () => {
+                    try { const data = await rotatePhotoDataUrl(p.data); updRepPhoto(p.id, { data, marks: [] }); flash("90°回転しました"); }
+                    catch { flash("回転に失敗しました"); }
+                  }}>↻ 90°回転</button>
+                  <button className="btn btn-ac btn-mini" onClick={() => setMarkEdit(null)}>完了</button>
+                </div>
               </div>
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 10px", minHeight: 0 }}>
                 <div style={{ position: "relative", cursor: "crosshair" }}
@@ -3067,6 +3193,21 @@ export default function App({ branding = null, tenantMode = false, onBrandingCha
                 <SettingNum key={k} label={l} value={set[k]} onChange={(e) => persistSet({ ...set, [k]: e.target.value })} />
               ))}
             </div>
+          </div>
+
+          <div className="eyebrow" style={{ margin: "0 4px 8px" }}>報告書 診断結果の定型文</div>
+          <div className="card" style={{ padding: 16, marginBottom: 18 }}>
+            {(set.repSummaryTemplates || []).length === 0 ? (
+              <p className="sub" style={{ fontSize: 13, margin: 0 }}>定型文は調査報告書の「診断結果」欄から保存できます。よく使う所見文を登録しておくと、次回からワンタップで挿入できます。</p>
+            ) : (
+              (set.repSummaryTemplates || []).map((tpl) => (
+                <div key={tpl.id} style={{ padding: "10px 0", borderBottom: ".5px solid rgba(0,0,0,.08)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{tpl.title}</div>
+                  <p className="sub" style={{ fontSize: 12.5, margin: "0 0 8px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{tpl.text.length > 80 ? tpl.text.slice(0, 80) + "…" : tpl.text}</p>
+                  <button className="btn btn-bar btn-mini" style={{ color: "#FF3B30" }} onClick={() => persistSet({ ...set, repSummaryTemplates: (set.repSummaryTemplates || []).filter((x) => x.id !== tpl.id) })}>削除</button>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="eyebrow" style={{ margin: "0 4px 8px" }}>データの引き継ぎ（バックアップ）</div>
